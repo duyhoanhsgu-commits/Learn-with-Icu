@@ -20,3 +20,38 @@ export const suggestedPrompts = [
 ]
 
 export const assistantReply = 'Think of recursion like opening a box that contains a smaller version of the same box.\n\nEach step solves a smaller version of the original problem.\n\nThe base case tells the function when to stop opening boxes.'
+
+export const generalPrompts = [
+  'Explain recursion simply',
+  'Teach me how neural networks work',
+  'Quiz me about Python',
+  'Explain RAG step by step',
+]
+
+export const filePrompts = [
+  'Summarize this document',
+  'Explain this document simply',
+  'Quiz me on this document',
+  'What are the key concepts?',
+  'Create practice questions',
+]
+
+export const initialFiles = [
+  { id: 'file-1', name: 'recursion-and-algorithms.pdf', type: 'pdf', size: '2.4 MB', status: 'ready' },
+  { id: 'file-2', name: 'machine-learning-notes.pdf', type: 'pdf', size: '4.1 MB', status: 'ready' },
+  { id: 'file-3', name: 'lecture-week-03.docx', type: 'docx', size: '850 KB', status: 'ready' },
+]
+
+export const initialLearningSpaces = [
+  { id: 'space-algorithms', name: 'Algorithms', color: 'teal', files: [
+    { id: 'file-1', name: 'recursion-and-algorithms.pdf', type: 'pdf', size: '2.4 MB', status: 'ready' },
+    { id: 'file-2', name: 'sorting-and-searching.pdf', type: 'pdf', size: '1.8 MB', status: 'ready' },
+  ] },
+  { id: 'space-machine-learning', name: 'Machine Learning', color: 'violet', files: [
+    { id: 'file-3', name: 'machine-learning-notes.pdf', type: 'pdf', size: '4.1 MB', status: 'ready' },
+    { id: 'file-4', name: 'lecture-week-03.docx', type: 'docx', size: '850 KB', status: 'ready' },
+  ] },
+  { id: 'space-writing', name: 'Academic Writing', color: 'amber', files: [
+    { id: 'file-5', name: 'argumentative-essay-guide.pdf', type: 'pdf', size: '1.2 MB', status: 'ready' },
+  ] },
+]
