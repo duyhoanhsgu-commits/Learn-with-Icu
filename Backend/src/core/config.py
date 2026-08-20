@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     LLM_MODEL_NAME: str = "gpt-4o-mini"
     OPENAI_API_KEY: str = ""
 
+    # LangSmith Tracing & Observability
+    LANGCHAIN_TRACING_V2: bool = True
+    LANGCHAIN_ENDPOINT: str = "https://api.smith.langchain.com"
+    LANGCHAIN_API_KEY: str = ""
+    LANGCHAIN_PROJECT: str = "learn-with-icu"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -45,5 +51,15 @@ class Settings(BaseSettings):
         path.mkdir(parents=True, exist_ok=True)
         return path.resolve()
 
+    def setup_environment(self) -> None:
+        """Setup global environment variables such as LangSmith tracing."""
+        if self.LANGCHAIN_TRACING_V2 and self.LANGCHAIN_API_KEY:
+            os.environ["LANGCHAIN_TRACING_V2"] = "true"
+            os.environ["LANGCHAIN_ENDPOINT"] = self.LANGCHAIN_ENDPOINT
+            os.environ["LANGCHAIN_API_KEY"] = self.LANGCHAIN_API_KEY
+            os.environ["LANGCHAIN_PROJECT"] = self.LANGCHAIN_PROJECT
+
 
 settings = Settings()
+settings.setup_environment()
+

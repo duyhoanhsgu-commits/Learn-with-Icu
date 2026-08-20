@@ -1,0 +1,5 @@
+import { BookOpen, Menu, MoreHorizontal, RotateCcw } from 'lucide-react'
+
+export default function ChatHeader({ title, subject, onMenu, onRestart }) {
+  return <header className="flex h-[72px] shrink-0 items-center justify-between gap-4 border-b border-slate-200/80 bg-white/70 px-4 backdrop-blur md:px-7"><div className="flex min-w-0 items-center gap-3"><button onClick={onMenu} aria-label="Open sidebar" className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 md:hidden"><Menu size={20} /></button><div className="min-w-0"><h1 className="truncate font-['Manrope'] text-sm font-bold text-ink sm:text-base">{title}</h1><div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500"><BookOpen size={13} className="text-teal" /><span>{subject}</span></div></div></div><div className="flex items-center gap-1"><button onClick={onRestart} className="hidden items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 sm:flex"><RotateCcw size={14} />Restart</button><button aria-label="More options" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><MoreHorizontal size={20} /></button></div></header>
+}
