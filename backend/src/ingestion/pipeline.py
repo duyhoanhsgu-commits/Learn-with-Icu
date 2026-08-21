@@ -49,7 +49,7 @@ class IngestionPipeline:
 
             chunk_payloads = self.chunker.create_chunk_payloads(
                 raw_chunks,
-                base_metadata={**doc_metadata, "document_id": document_id},
+                base_metadata={**doc_metadata, "document_id": document_id, "space_id": doc_record.space_id},
             )
 
             # 4. Generate embeddings

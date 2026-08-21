@@ -1,10 +1,10 @@
 import uuid
 from typing import List
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, BackgroundTasks, status
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, BackgroundTasks, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
-from src.storage.postgres import get_db_session, Document
+from src.storage.postgres import get_db_session, Document, LearningSpace
 from src.storage.object_store import object_store
 from src.storage.vector_store import vector_store
 from src.workers.ingestion_worker import process_document_background
@@ -18,11 +18,14 @@ router = APIRouter(prefix="/documents", tags=["Documents"])
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    space_id: str = Form(...),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Upload a file (PDF, TXT, MD, JSON) and enqueue async ingestion."""
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename cannot be empty")
+    if not await db.get(LearningSpace, space_id):
+        raise HTTPException(status_code=404, detail="Learning space not found.")
 
     file_ext = file.filename.split(".")[-1].lower() if "." in file.filename else ""
     allowed_exts = ["pdf", "txt", "md", "json"]
@@ -42,6 +45,7 @@ async def upload_document(
     doc_id = str(uuid.uuid4())
     doc = Document(
         id=doc_id,
+        space_id=space_id,
         filename=file.filename,
         file_path=str(saved_path),
         file_type=file_ext,
@@ -66,14 +70,20 @@ async def upload_document(
 async def list_documents(
     skip: int = 0,
     limit: int = 20,
+    space_id: str | None = None,
     db: AsyncSession = Depends(get_db_session),
 ):
     """List all uploaded documents."""
     count_query = select(func.count()).select_from(Document)
+    if space_id:
+        count_query = count_query.where(Document.space_id == space_id)
     total_res = await db.execute(count_query)
     total = total_res.scalar_one()
 
-    query = select(Document).order_by(Document.created_at.desc()).offset(skip).limit(limit)
+    query = select(Document)
+    if space_id:
+        query = query.where(Document.space_id == space_id)
+    query = query.order_by(Document.created_at.desc()).offset(skip).limit(limit)
     res = await db.execute(query)
     docs = res.scalars().all()
 

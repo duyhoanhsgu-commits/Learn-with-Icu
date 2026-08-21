@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Optional
 from qdrant_client import AsyncQdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct
+from qdrant_client.models import Distance, FieldCondition, Filter, MatchValue, PointStruct, VectorParams
 
 from src.core.config import settings
 from src.core.logging import logger
@@ -75,11 +75,18 @@ class VectorStore:
         """Search similar vectors."""
         if self.store_type == "qdrant":
             try:
+                query_filter = None
+                space_id = (filter_dict or {}).get("space_id")
+                if space_id:
+                    query_filter = Filter(
+                        must=[FieldCondition(key="space_id", match=MatchValue(value=space_id))]
+                    )
                 results = await self.client.search(
                     collection_name=self.collection_name,
                     query_vector=query_vector,
                     limit=top_k,
                     score_threshold=score_threshold if score_threshold > 0 else None,
+                    query_filter=query_filter,
                 )
                 return [
                     {
@@ -113,6 +120,23 @@ class VectorStore:
                 return True
             except Exception as e:
                 logger.error(f"Error deleting vectors for document {document_id}: {e}")
+                return False
+        return True
+
+    async def assign_document_to_space(self, document_id: str, space_id: str) -> bool:
+        """Backfill the space payload on vectors created before spaces existed."""
+        if self.store_type == "qdrant":
+            try:
+                await self.client.set_payload(
+                    collection_name=self.collection_name,
+                    payload={"space_id": space_id},
+                    points=Filter(
+                        must=[FieldCondition(key="document_id", match=MatchValue(value=document_id))]
+                    ),
+                )
+                return True
+            except Exception as e:
+                logger.error(f"Error assigning document {document_id} vectors to space {space_id}: {e}")
                 return False
         return True
 

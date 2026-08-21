@@ -65,6 +65,27 @@ If you don't know the answer or if the context does not contain enough informati
             f"Context preview:\n- {context_preview}"
         )
 
+    async def generate_general_response(self, query: str) -> str:
+        """Answer without retrieval context for the General Chat screen."""
+        if self._client:
+            try:
+                response = await self._client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[
+                        {"role": "system", "content": "You are ICU Tutor, a helpful learning assistant."},
+                        {"role": "user", "content": query},
+                    ],
+                    temperature=0.4,
+                )
+                return response.choices[0].message.content or ""
+            except Exception as e:
+                logger.error(f"General chat generation error: {e}")
+
+        return (
+            "[General Chat] (Fallback mode - OPENAI_API_KEY not set)\n"
+            f"Question: {query}"
+        )
+
     async def generate_stream(
         self, query: str, contexts: List[Dict[str, Any]], system_prompt: str = ""
     ) -> AsyncGenerator[str, None]:

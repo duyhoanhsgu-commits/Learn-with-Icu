@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Learn with Icu RAG API"
     VERSION: str = "0.1.0"
-    DEBUG: bool = True
+    APP_DEBUG: bool = True
     API_V1_STR: str = "/api/v1"
 
     # PostgreSQL Database
@@ -62,4 +62,3 @@ class Settings(BaseSettings):
 
 settings = Settings()
 settings.setup_environment()
-

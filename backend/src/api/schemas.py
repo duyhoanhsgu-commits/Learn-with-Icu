@@ -4,8 +4,24 @@ from pydantic import BaseModel, Field
 
 
 # --- Document Schemas ---
+class LearningSpaceCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    color: str = Field(default="blue", pattern="^(blue|teal|violet|amber)$")
+
+
+class LearningSpaceResponse(BaseModel):
+    id: str
+    name: str
+    color: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class DocumentResponse(BaseModel):
     id: str
+    space_id: str
     filename: str
     file_type: str
     file_size: int
@@ -29,9 +45,13 @@ class DocumentUploadResponse(BaseModel):
 
 
 # --- Chat Schemas ---
-class ChatQueryRequest(BaseModel):
+class GeneralChatRequest(BaseModel):
     question: str = Field(..., description="User query / question")
-    session_id: Optional[str] = Field(default="default_session", description="Chat session identifier")
+    session_id: str = Field(default="default_session", description="Chat session identifier")
+
+
+class ChatQueryRequest(GeneralChatRequest):
+    space_id: str = Field(..., description="Learning space used to scope retrieval")
     top_k: int = Field(default=5, ge=1, le=20, description="Number of context chunks to retrieve")
     score_threshold: float = Field(default=0.0, ge=0.0, le=1.0, description="Minimum similarity score")
     stream: bool = Field(default=False, description="Stream response tokens")

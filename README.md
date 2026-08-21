@@ -68,7 +68,27 @@ python scripts/init_db.py
 ### 3. Run FastAPI Dev Server
 
 ```bash
-uvicorn src.api.main:app --reload --port 8000
+PYTHONPATH=backend uvicorn src.api.main:app --reload --port 8000
 ```
 
 Access API Documentation at: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+### 4. Run the frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173). Vite proxies `/api` requests to
+FastAPI on port `8000`. For a deployed backend, copy `frontend/.env.example` to
+`frontend/.env` and set `VITE_API_URL` to the public `/api/v1` URL.
+
+Learning spaces are persisted by the backend. Every upload includes a `space_id`,
+and chat requests made inside a space are filtered by that same ID in Qdrant.
+Documents created before this model was introduced are migrated into an
+`Imported documents` space on startup.
+
+`POST /api/v1/chat/general` is plain LLM chat without retrieval.
+`POST /api/v1/chat/query` requires `space_id` and runs space-scoped RAG.
