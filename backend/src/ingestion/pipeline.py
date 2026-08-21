@@ -14,7 +14,7 @@ from src.core.logging import logger
 class IngestionPipeline:
     """Orchestrates parsing, chunking, embedding, and storing document data."""
 
-    def __init__(self, chunk_size: int = 500, chunk_overlap: int = 50):
+    def __init__(self, chunk_size: int = 500, chunk_overlap: int = 75):
         self.parser = DocumentParser()
         self.chunker = TextChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
         self.metadata_extractor = MetadataExtractor()
