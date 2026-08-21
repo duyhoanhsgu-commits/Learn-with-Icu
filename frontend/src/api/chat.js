@@ -27,6 +27,26 @@ export async function askQuestion({ question, sessionId, spaceId, topK = 5, scor
   return response.json()
 }
 
+export async function askGeneralQuestion({ question, sessionId }) {
+  const response = await fetch(`${API_BASE_URL}/chat/general`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question, session_id: sessionId }),
+  })
+
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`
+    try {
+      const body = await response.json()
+      message = body.detail || body.message || message
+    } catch {
+      // Keep the HTTP status fallback when the response is not JSON.
+    }
+    throw new Error(message)
+  }
+  return response.json()
+}
+
 export function toFrontendSources(sources = []) {
   return sources.map((source) => ({
     fileId: source.document_id || source.chunk_id || source.source,
