@@ -98,7 +98,7 @@ class VectorStore:
                 ]
             except Exception as e:
                 logger.error(f"Vector search failed: {e}")
-                return []
+                raise RuntimeError("Vector search is unavailable.") from e
         return []
 
     async def delete_by_document_id(self, document_id: str) -> bool:
