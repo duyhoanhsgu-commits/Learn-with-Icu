@@ -18,6 +18,7 @@ async def summarize_node(state: AgentState) -> AgentState:
             "the main ideas, supporting details, and key takeaways. Use only the "
             "provided document context and clearly state any coverage limitations."
         ),
+        image_data_url=state.image_data_url,
     )
     state.sources = contexts
     return state

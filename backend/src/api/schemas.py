@@ -52,6 +52,12 @@ class GeneralChatRequest(BaseModel):
 
 class ChatQueryRequest(GeneralChatRequest):
     space_id: str = Field(..., description="Learning space used to scope retrieval")
+    image_data_url: Optional[str] = Field(
+        default=None,
+        max_length=8_000_000,
+        pattern=r"^data:image/(png|jpeg|webp);base64,",
+        description="Optional cropped document image as a data URL",
+    )
     top_k: int = Field(default=5, ge=1, le=20, description="Number of context chunks to retrieve")
     score_threshold: float = Field(default=0.0, ge=0.0, le=1.0, description="Minimum similarity score")
     stream: bool = Field(default=False, description="Stream response tokens")

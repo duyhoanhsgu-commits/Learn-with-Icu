@@ -11,6 +11,7 @@ class AgentState:
     space_id: Optional[str] = None
     top_k: int = 5
     score_threshold: float = 0.0
+    image_data_url: Optional[str] = None
     requested_route: Optional[AgentRoute] = None
     route: Optional[AgentRoute] = None
     answer: str = ""

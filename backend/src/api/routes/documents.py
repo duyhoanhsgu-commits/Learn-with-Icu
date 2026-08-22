@@ -1,6 +1,8 @@
 import uuid
 from typing import List
+from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, BackgroundTasks, status
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
@@ -8,6 +10,7 @@ from src.storage.postgres import get_db_session, Document, LearningSpace
 from src.storage.object_store import object_store
 from src.storage.vector_store import vector_store
 from src.workers.ingestion_worker import process_document_background
+from src.ingestion.parser import DocumentParser
 from src.api.schemas import DocumentResponse, DocumentListResponse, DocumentUploadResponse
 from src.core.logging import logger
 
@@ -28,7 +31,7 @@ async def upload_document(
         raise HTTPException(status_code=404, detail="Learning space not found.")
 
     file_ext = file.filename.split(".")[-1].lower() if "." in file.filename else ""
-    allowed_exts = ["pdf", "txt", "md", "json"]
+    allowed_exts = ["pdf", "txt", "md", "json", "docx"]
     if file_ext not in allowed_exts:
         raise HTTPException(
             status_code=400,
@@ -100,6 +103,33 @@ async def get_document(
     if not doc:
         raise HTTPException(status_code=404, detail=f"Document with ID '{document_id}' not found.")
     return doc
+
+
+@router.get("/{document_id}/content")
+async def get_document_content(
+    document_id: str,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Serve the original document for the in-app viewer."""
+    doc = await db.get(Document, document_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    if not object_store.exists(doc.file_path.split("/")[-1]):
+        raise HTTPException(status_code=404, detail="Stored file not found.")
+    return FileResponse(doc.file_path, filename=doc.filename, content_disposition_type="inline")
+
+
+@router.get("/{document_id}/text")
+async def get_document_text(
+    document_id: str,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Return extracted text for Markdown, text, JSON, and Word previews."""
+    doc = await db.get(Document, document_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    text_content, _ = DocumentParser.parse_file(Path(doc.file_path))
+    return {"document_id": doc.id, "text": text_content}
 
 
 @router.delete("/{document_id}", status_code=status.HTTP_200_OK)

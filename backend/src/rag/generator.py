@@ -36,11 +36,22 @@ If you don't know the answer or if the context does not contain enough informati
         return prompt
 
     async def generate_response(
-        self, query: str, contexts: List[Dict[str, Any]], system_prompt: str = ""
+        self,
+        query: str,
+        contexts: List[Dict[str, Any]],
+        system_prompt: str = "",
+        image_data_url: str | None = None,
     ) -> str:
         """Generate complete answer string for the query."""
         user_prompt = self._build_prompt(query, contexts)
         sys_prompt = system_prompt or "You are a helpful and precise RAG assistant."
+
+        user_content: Any = user_prompt
+        if image_data_url:
+            user_content = [
+                {"type": "text", "text": user_prompt},
+                {"type": "image_url", "image_url": {"url": image_data_url}},
+            ]
 
         if self._client:
             try:
@@ -48,7 +59,7 @@ If you don't know the answer or if the context does not contain enough informati
                     model=self.model_name,
                     messages=[
                         {"role": "system", "content": sys_prompt},
-                        {"role": "user", "content": user_prompt},
+                        {"role": "user", "content": user_content},
                     ],
                     temperature=0.2,
                 )
@@ -61,6 +72,7 @@ If you don't know the answer or if the context does not contain enough informati
         return (
             f"[RAG Response] (Fallback mode - OPENAI_API_KEY not set)\n"
             f"Question: {query}\n"
+            f"Attached document crop: {'yes' if image_data_url else 'no'}\n"
             f"Retrieved {len(contexts)} contexts.\n"
             f"Context preview:\n- {context_preview}"
         )

@@ -63,6 +63,7 @@ async def chat_query(
         space_id=request.space_id,
         top_k=request.top_k,
         score_threshold=request.score_threshold,
+        image_data_url=request.image_data_url,
     ))
 
     # 2. Persist chat message history to Database

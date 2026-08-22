@@ -10,3 +10,11 @@ button, textarea { font: inherit; }
 button { -webkit-tap-highlight-color: transparent; }
 ::-webkit-scrollbar { width: 7px; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+.document-markdown { color: #334155; font-size: 14px; line-height: 1.75; }
+.document-markdown h1, .document-markdown h2, .document-markdown h3 { margin: 1.25em 0 .5em; color: #0f172a; font-family: Manrope, sans-serif; font-weight: 700; }
+.document-markdown h1 { font-size: 1.5rem; }
+.document-markdown h2 { font-size: 1.25rem; }
+.document-markdown p, .document-markdown ul, .document-markdown ol { margin: .75em 0; }
+.document-markdown ul, .document-markdown ol { padding-left: 1.5rem; }
+.document-markdown code { border-radius: .3rem; background: #eef2f7; padding: .1rem .3rem; }
+.react-pdf__Page { margin-inline: auto; box-shadow: 0 8px 28px rgba(15, 23, 42, .12); }

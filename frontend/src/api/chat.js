@@ -1,6 +1,6 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1'
 
-export async function askQuestion({ question, sessionId, spaceId, topK = 5, scoreThreshold = 0 }) {
+export async function askQuestion({ question, sessionId, spaceId, imageDataUrl, topK = 5, scoreThreshold = 0 }) {
   const response = await fetch(`${API_BASE_URL}/chat/query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -8,6 +8,7 @@ export async function askQuestion({ question, sessionId, spaceId, topK = 5, scor
       question,
       session_id: sessionId,
       space_id: spaceId,
+      image_data_url: imageDataUrl,
       top_k: topK,
       score_threshold: scoreThreshold,
     }),

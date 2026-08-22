@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Dict, Any, Tuple
 from pypdf import PdfReader
+from docx import Document as DocxDocument
 
 from src.core.logging import logger
 
@@ -23,6 +24,8 @@ class DocumentParser:
             return DocumentParser._parse_pdf(file_path, metadata)
         elif suffix in [".txt", ".md", ".markdown"]:
             return DocumentParser._parse_text(file_path, metadata)
+        elif suffix == ".docx":
+            return DocumentParser._parse_docx(file_path, metadata)
         elif suffix == ".json":
             return DocumentParser._parse_json(file_path, metadata)
         else:
@@ -73,3 +76,14 @@ class DocumentParser:
         except Exception as e:
             logger.error(f"Failed to parse JSON file {file_path}: {e}")
             raise ValueError(f"Could not parse JSON file: {e}")
+
+    @staticmethod
+    def _parse_docx(file_path: Path, metadata: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
+        try:
+            document = DocxDocument(str(file_path))
+            paragraphs = [paragraph.text for paragraph in document.paragraphs if paragraph.text.strip()]
+            metadata["paragraph_count"] = len(paragraphs)
+            return "\n\n".join(paragraphs), metadata
+        except Exception as e:
+            logger.error(f"Failed to parse DOCX {file_path}: {e}")
+            raise ValueError(f"Could not parse DOCX file: {e}")

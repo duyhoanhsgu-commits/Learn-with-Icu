@@ -17,6 +17,7 @@ class RAGPipeline:
         top_k: int = 5,
         score_threshold: float = 0.0,
         filter_dict: Optional[Dict[str, Any]] = None,
+        image_data_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Process query through RAG pipeline: Retrieve -> Generate -> Return answer + sources."""
         logger.info(f"Executing RAG pipeline for query: '{query}'")
@@ -30,7 +31,11 @@ class RAGPipeline:
         )
 
         # 2. Generate LLM answer
-        answer = await self.generator.generate_response(query=query, contexts=contexts)
+        answer = await self.generator.generate_response(
+            query=query,
+            contexts=contexts,
+            image_data_url=image_data_url,
+        )
 
         return {
             "query": query,

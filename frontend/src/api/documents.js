@@ -27,6 +27,9 @@ export const documentsApi = {
   remove: (documentId) => request(`/documents/${documentId}`, { method: 'DELETE' }),
 }
 
+export const documentContentUrl = (documentId) => `${API_BASE_URL}/documents/${documentId}/content`
+export const documentTextUrl = (documentId) => `${API_BASE_URL}/documents/${documentId}/text`
+
 export function toFrontendFile(document) {
   const statusMap = {
     completed: 'ready',

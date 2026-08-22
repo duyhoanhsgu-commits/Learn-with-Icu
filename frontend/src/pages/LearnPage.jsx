@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { AlertCircle, CheckCircle2, FolderOpen, Upload } from 'lucide-react'
-import FileSidebar from '../components/files/FileSidebar'
-import ChatHeader from '../components/layout/ChatHeader'
+import { AlertCircle, ArrowLeft, CheckCircle2, FolderOpen, RotateCcw, Upload } from 'lucide-react'
 import MessageList from '../components/chat/MessageList'
 import SuggestedPrompts from '../components/chat/SuggestedPrompts'
 import ChatInput from '../components/chat/ChatInput'
@@ -9,6 +7,9 @@ import { filePrompts } from '../data/mockData'
 import { documentsApi, toFrontendFile } from '../api/documents'
 import { askQuestion, toFrontendSources } from '../api/chat'
 import { spacesApi } from '../api/spaces'
+import ResizableWorkspace from '../components/workspace/ResizableWorkspace'
+import DocumentsPanel from '../components/workspace/DocumentsPanel'
+import ToolsPanel from '../components/workspace/ToolsPanel'
 
 const openingMessage = (space) => ({
   id: `open-${space.id}-${Date.now()}`,
@@ -23,7 +24,7 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
   const [messagesBySpace, setMessagesBySpace] = useState(() => Object.fromEntries(learningSpaces.map((space) => [space.id, [openingMessage(space)]])))
   const [draft, setDraft] = useState('')
   const [isTyping, setIsTyping] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [selectedFileId, setSelectedFileId] = useState(null)
   const [notice, setNotice] = useState(null)
   const timerRef = useRef(null)
   const sessionIdsRef = useRef({})
@@ -32,6 +33,7 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
   const readyFiles = activeSpace?.files.filter((file) => file.status === 'ready') || []
   const indexedFiles = readyFiles.filter((file) => file.persisted)
   const uploading = activeSpace?.files.some((file) => file.status === 'uploading') || false
+  const selectedFile = activeSpace?.files.find((file) => file.id === selectedFileId) || null
 
   useEffect(() => {
     if (!activeSpaceId && learningSpaces.length) {
@@ -45,8 +47,8 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
     clearTimeout(timerRef.current)
     setIsTyping(false)
     setActiveSpaceId(spaceId)
+    setSelectedFileId(null)
     setDraft('')
-    setSidebarOpen(false)
     const space = learningSpaces.find((item) => item.id === spaceId)
     if (space) setMessagesBySpace((all) => all[spaceId] ? all : { ...all, [spaceId]: [openingMessage(space)] })
   }
@@ -137,8 +139,8 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
     setMessagesBySpace((all) => ({ ...all, [activeSpace.id]: [openingMessage(activeSpace)] }))
   }
 
-  const send = async () => {
-    const content = draft.trim()
+  const send = async (preparedPrompt = '', imageDataUrl = null) => {
+    const content = (preparedPrompt || draft).trim()
     if (!content || !activeSpace || !indexedFiles.length || isTyping) return
     const space = activeSpace
     const sessionId = sessionIdsRef.current[space.id] || crypto.randomUUID()
@@ -147,7 +149,7 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
     setMessagesBySpace((all) => ({ ...all, [space.id]: [...(all[space.id] || []), { id: crypto.randomUUID(), role: 'user', content }] }))
     setIsTyping(true)
     try {
-      const response = await askQuestion({ question: content, sessionId, spaceId: space.id })
+      const response = await askQuestion({ question: content, sessionId, spaceId: space.id, imageDataUrl })
       const reply = {
         id: crypto.randomUUID(),
         role: 'assistant',
@@ -175,5 +177,7 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
         ? 'Your files are being prepared...'
         : `Ask anything in ${activeSpace.name}...`
 
-  return <main className="flex h-screen overflow-hidden bg-canvas"><FileSidebar spaces={learningSpaces} activeSpace={activeSpace} onSelectSpace={selectSpace} onCreateSpace={createSpace} onUpload={upload} onDeleteFile={deleteFile} onGeneralChat={() => onNavigate('/chat')} open={sidebarOpen} onClose={() => setSidebarOpen(false)} /><section className="relative flex min-w-0 flex-1 flex-col"><ChatHeader title={activeSpace?.name || 'Learning Spaces'} subject={activeSpace ? `${readyFiles.length} ${readyFiles.length === 1 ? 'document' : 'documents'} in this knowledge space${uploading ? ' · Processing...' : ''}` : 'Create or select a space'} onMenu={() => setSidebarOpen(true)} onRestart={restart} />{(notice || documentsState.error) && <div className={`mx-auto mt-3 flex w-[calc(100%-2.5rem)] max-w-[770px] items-center gap-2 rounded-lg border px-3 py-2 text-xs ${notice?.type === 'success' && !documentsState.error ? 'border-teal/20 bg-[#edf9f6] text-[#08786e]' : 'border-red-200 bg-red-50 text-red-700'}`}>{notice?.type === 'success' && !documentsState.error ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}<span className="flex-1">{documentsState.error ? `Document API unavailable: ${documentsState.error}` : notice.message}</span><button onClick={() => setNotice(null)} className="text-current opacity-60 hover:opacity-100">×</button></div>}<div className="min-h-0 flex-1 overflow-y-auto">{activeSpace ? <MessageList messages={messages} isTyping={isTyping} /> : <div className="grid h-full place-items-center px-6"><div className="max-w-md text-center"><div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-navy text-white"><FolderOpen size={23} /></div><h2 className="font-['Manrope'] text-xl font-bold">Create your first learning space</h2><p className="mt-3 text-sm leading-6 text-slate-500">Keep subjects separate, upload a different set of documents to each space, and chat with only that knowledge base.</p></div></div>}</div><div className="shrink-0 border-t border-slate-200/70 bg-canvas pb-4 pt-3 sm:px-6 sm:pb-5">{activeSpace && !activeSpace.files.length ? <div className="mx-auto mb-3 flex max-w-[770px] items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white/60 py-3 text-xs text-slate-500"><Upload size={15} className="text-teal" />Upload documents from the sidebar to activate this space</div> : <SuggestedPrompts prompts={filePrompts} onSelect={(prompt) => !unavailable && setDraft(prompt)} />}<ChatInput value={draft} onChange={setDraft} onSubmit={send} disabled={unavailable || isTyping} placeholder={placeholder} /></div></section></main>
+  const chatPanel = <section className="flex h-full min-w-0 flex-col bg-canvas"><header className="flex h-[68px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4"><div className="min-w-0"><p className="text-[10px] font-bold tracking-[.18em] text-teal">SPACE CHAT</p><h2 className="mt-1 truncate font-['Manrope'] text-sm font-bold">{activeSpace?.name || 'Learning Space'}</h2></div><button onClick={restart} disabled={!activeSpace} title="Restart chat" className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-teal disabled:opacity-30"><RotateCcw size={16} /></button></header>{(notice || documentsState.error) && <div className={`m-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${notice?.type === 'success' && !documentsState.error ? 'border-teal/20 bg-[#edf9f6] text-[#08786e]' : 'border-red-200 bg-red-50 text-red-700'}`}>{notice?.type === 'success' && !documentsState.error ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}<span className="flex-1">{documentsState.error ? `API unavailable: ${documentsState.error}` : notice.message}</span><button onClick={() => setNotice(null)}>×</button></div>}<div className="min-h-0 flex-1 overflow-y-auto">{activeSpace ? <MessageList messages={messages} isTyping={isTyping} /> : <div className="grid h-full place-items-center px-6 text-center"><div><FolderOpen className="mx-auto text-slate-300" /><p className="mt-3 text-sm font-semibold">Create a Learning Space</p></div></div>}</div><div className="shrink-0 border-t border-slate-200 bg-canvas pb-3 pt-3">{activeSpace && !activeSpace.files.length ? <div className="mx-4 mb-3 flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 py-3 text-xs text-slate-500"><Upload size={15} className="text-teal" />Upload a document to begin</div> : <SuggestedPrompts prompts={filePrompts} onSelect={(prompt) => !unavailable && setDraft(prompt)} />}<ChatInput value={draft} onChange={setDraft} onSubmit={send} disabled={unavailable || isTyping} placeholder={placeholder} /></div></section>
+
+  return <main className="flex h-screen flex-col overflow-hidden bg-canvas"><div className="flex h-12 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4"><div className="flex items-center gap-2"><div className="grid h-7 w-7 place-items-center rounded-lg bg-navy text-[9px] font-bold text-white">IC</div><span className="font-['Manrope'] text-sm font-bold">ICU Learning Workspace</span></div><button onClick={() => onNavigate('/chat')} className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-teal"><ArrowLeft size={14} />General Chat</button></div><ResizableWorkspace left={<DocumentsPanel spaces={learningSpaces} activeSpace={activeSpace} onSelectSpace={selectSpace} onCreateSpace={createSpace} onUpload={upload} onDeleteFile={deleteFile} selectedFile={selectedFile} onSelectFile={setSelectedFileId} onAsk={(question, excerpt, imageDataUrl) => send(excerpt ? `${question}\n\nSelected document excerpt:\n${excerpt}` : question, imageDataUrl)} />} center={chatPanel} right={<ToolsPanel disabled={unavailable || isTyping} onUseTool={send} />} /></main>
 }
