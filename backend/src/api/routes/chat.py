@@ -3,8 +3,9 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.storage.postgres import get_db_session, ChatMessage, LearningSpace
+from src.agent import agent_graph
+from src.agent.state import AgentState
 from src.rag.pipeline import rag_pipeline
-from src.rag.generator import generator
 from src.api.schemas import ChatQueryRequest, ChatQueryResponse, GeneralChatRequest
 
 router = APIRouter(prefix="/chat", tags=["Chat & Q&A"])
@@ -30,13 +31,17 @@ async def general_chat(
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
-    answer = await generator.generate_general_response(request.question)
-    await persist_exchange(db, request.session_id, request.question, answer)
+    state = await agent_graph.run(AgentState(
+        query=request.question,
+        session_id=request.session_id,
+        requested_route="general_chat",
+    ))
+    await persist_exchange(db, request.session_id, request.question, state.answer)
     return ChatQueryResponse(
         session_id=request.session_id,
         question=request.question,
-        answer=answer,
-        sources=[],
+        answer=state.answer,
+        sources=state.sources,
     )
 
 
@@ -51,22 +56,23 @@ async def chat_query(
     if not await db.get(LearningSpace, request.space_id):
         raise HTTPException(status_code=404, detail="Learning space not found.")
 
-    # 1. Run RAG Pipeline
-    result = await rag_pipeline.answer_question(
+    # The graph selects regular RAG or the summarization specialist.
+    state = await agent_graph.run(AgentState(
         query=request.question,
+        session_id=request.session_id,
+        space_id=request.space_id,
         top_k=request.top_k,
         score_threshold=request.score_threshold,
-        filter_dict={"space_id": request.space_id},
-    )
+    ))
 
     # 2. Persist chat message history to Database
-    await persist_exchange(db, request.session_id, request.question, result["answer"], result["sources"])
+    await persist_exchange(db, request.session_id, request.question, state.answer, state.sources)
 
     return ChatQueryResponse(
         session_id=request.session_id,
-        question=result["query"],
-        answer=result["answer"],
-        sources=result["sources"],
+        question=state.query,
+        answer=state.answer,
+        sources=state.sources,
     )
 
 
