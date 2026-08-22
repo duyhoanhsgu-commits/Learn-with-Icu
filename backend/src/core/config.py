@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     EMBEDDING_DIMENSION: int = 1536
     LLM_MODEL_NAME: str = "gpt-4o-mini"
     OPENAI_API_KEY: str = ""
+    TAVILY_API_KEY: str = ""
 
     # LangSmith Tracing & Observability
     LANGCHAIN_TRACING_V2: bool = True
