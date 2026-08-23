@@ -78,3 +78,24 @@ class ChatQueryResponse(BaseModel):
     question: str
     answer: str
     sources: List[SourceChunk]
+
+
+# --- Learning Tool Schemas ---
+class QuizGenerateRequest(BaseModel):
+    space_id: str
+    prompt: str = Field(..., min_length=1, max_length=2000)
+
+
+class QuizQuestion(BaseModel):
+    question: str
+    options: List[str] = Field(..., min_length=4, max_length=4)
+    correct_index: int = Field(..., ge=0, le=3)
+    explanation: str
+
+
+class QuizResponse(BaseModel):
+    id: str
+    title: str
+    prompt: str
+    question_count: int
+    questions: List[QuizQuestion]
