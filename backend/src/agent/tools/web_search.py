@@ -108,11 +108,11 @@ def _search_tavily(
     ]
 
 
-def web_search(query: str, max_results: int = 5) -> str:
-    """Search current web information and return Markdown-formatted results."""
+def search_results(query: str, max_results: int = 5) -> List[SearchResult]:
+    """Search current web information and return structured results."""
     normalized_query = query.strip()
     if not normalized_query:
-        return "Câu truy vấn tìm kiếm không được để trống."
+        return []
 
     result_limit = max(1, min(max_results, _MAX_RESULTS_LIMIT))
     logger.info(f"Searching the web for: {normalized_query!r}")
@@ -127,6 +127,15 @@ def web_search(query: str, max_results: int = 5) -> str:
     if not results:
         results = _search_duckduckgo(normalized_query, result_limit)
 
+    return results
+
+
+def web_search(query: str, max_results: int = 5) -> str:
+    """Search current web information and return Markdown-formatted results."""
+    normalized_query = query.strip()
+    if not normalized_query:
+        return "Câu truy vấn tìm kiếm không được để trống."
+    results = search_results(normalized_query, max_results)
     if not results:
         return f"Không tìm thấy kết quả phù hợp cho: '{normalized_query}'."
 

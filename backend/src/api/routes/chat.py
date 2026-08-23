@@ -34,7 +34,6 @@ async def general_chat(
     state = await agent_graph.run(AgentState(
         query=request.question,
         session_id=request.session_id,
-        requested_route="general_chat",
     ))
     await persist_exchange(db, request.session_id, request.question, state.answer)
     return ChatQueryResponse(

@@ -3,6 +3,12 @@ from openai import AsyncOpenAI
 from src.core.config import settings
 from src.core.logging import logger
 
+_RESPONSE_FORMAT_GUIDANCE = (
+    "Structure answers in clear Markdown with short sections, lists, tables, or code "
+    "only when they improve comprehension. Write inline mathematics as $...$ and "
+    "display equations as $$...$$ using valid LaTeX. Do not wrap LaTeX in code fences."
+)
+
 
 class RAGGenerator:
     """Generates answers based on retrieved context using OpenAI / LLM."""
@@ -17,8 +23,10 @@ class RAGGenerator:
         formatted_contexts = []
         for idx, ctx in enumerate(contexts, 1):
             source = ctx.get("source", "doc")
+            url = ctx.get("url")
             text = ctx.get("text", "")
-            formatted_contexts.append(f"[{idx}] (Source: {source})\n{text}")
+            source_label = f"{source} — {url}" if url else source
+            formatted_contexts.append(f"[{idx}] (Source: {source_label})\n{text}")
 
         context_str = "\n\n".join(formatted_contexts) if formatted_contexts else "No context found."
 
@@ -45,6 +53,7 @@ If you don't know the answer or if the context does not contain enough informati
         """Generate complete answer string for the query."""
         user_prompt = self._build_prompt(query, contexts)
         sys_prompt = system_prompt or "You are a helpful and precise RAG assistant."
+        sys_prompt = f"{sys_prompt}\n\n{_RESPONSE_FORMAT_GUIDANCE}"
 
         user_content: Any = user_prompt
         if image_data_url:
@@ -84,7 +93,7 @@ If you don't know the answer or if the context does not contain enough informati
                 response = await self._client.chat.completions.create(
                     model=self.model_name,
                     messages=[
-                        {"role": "system", "content": "You are ICU Tutor, a helpful learning assistant."},
+                        {"role": "system", "content": f"You are ICU Tutor, a helpful learning assistant.\n\n{_RESPONSE_FORMAT_GUIDANCE}"},
                         {"role": "user", "content": query},
                     ],
                     temperature=0.4,

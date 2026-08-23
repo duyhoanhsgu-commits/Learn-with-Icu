@@ -70,6 +70,7 @@ class SourceChunk(BaseModel):
     source: str
     document_id: Optional[str] = None
     chunk_index: Optional[int] = None
+    url: Optional[str] = None
 
 
 class ChatQueryResponse(BaseModel):

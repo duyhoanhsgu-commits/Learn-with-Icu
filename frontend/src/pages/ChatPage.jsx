@@ -4,7 +4,7 @@ import MessageList from '../components/chat/MessageList'
 import SuggestedPrompts from '../components/chat/SuggestedPrompts'
 import ChatInput from '../components/chat/ChatInput'
 import { generalPrompts } from '../data/mockData'
-import { askGeneralQuestion } from '../api/chat'
+import { askGeneralQuestion, toFrontendSources } from '../api/chat'
 
 export default function ChatPage({ onNavigate }) {
   const [messages, setMessages] = useState([])
@@ -23,6 +23,7 @@ export default function ChatPage({ onNavigate }) {
         id: crypto.randomUUID(),
         role: 'assistant',
         content: response.answer,
+        sources: toFrontendSources(response.sources),
       }])
     } catch (error) {
       setMessages((items) => [...items, { id: crypto.randomUUID(), role: 'error', content: `Unable to reach ICU Tutor: ${error.message}` }])

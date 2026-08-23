@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional
 
-AgentRoute = Literal["general_chat", "rag", "summarize"]
+AgentRoute = Literal["general_chat", "rag", "summarize", "web_research"]
 
 
 @dataclass

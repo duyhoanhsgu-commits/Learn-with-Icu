@@ -26,3 +26,8 @@ def test_explicit_route_has_priority():
         requested_route="rag",
     )
     assert route_agent(state) == "rag"
+
+
+def test_current_information_routes_to_web_research():
+    state = AgentState(query="Tìm trên mạng tin AI mới nhất", session_id="s1")
+    assert route_agent(state) == "web_research"

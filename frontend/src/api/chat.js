@@ -54,5 +54,6 @@ export function toFrontendSources(sources = []) {
     fileName: source.source || 'Document',
     page: source.page ?? source.metadata?.page ?? null,
     score: source.score,
+    url: source.url,
   }))
 }
