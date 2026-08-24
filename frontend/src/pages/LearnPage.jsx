@@ -10,6 +10,7 @@ import { spacesApi } from '../api/spaces'
 import ResizableWorkspace from '../components/workspace/ResizableWorkspace'
 import DocumentsPanel from '../components/workspace/DocumentsPanel'
 import ToolsPanel from '../components/workspace/ToolsPanel'
+import BrandLogo from '../components/common/BrandLogo'
 
 const openingMessage = (space) => ({
   id: `open-${space.id}-${Date.now()}`,
@@ -22,7 +23,7 @@ const openingMessage = (space) => ({
 function WorkspaceWelcome({ space, files }) {
   const currentFile = files[0]
   return <div className="mx-auto flex h-full w-full max-w-[760px] flex-col items-center justify-center px-5 py-8 text-center sm:px-8">
-    <div className="icu-action-gradient grid h-14 w-14 place-items-center rounded-full text-xs font-bold text-white shadow-[0_12px_28px_rgba(52,133,245,.25)]">IC</div>
+    <BrandLogo className="h-14 w-14 rounded-2xl border border-line bg-white p-1.5 shadow-[0_12px_28px_rgba(52,133,245,.18)]" />
     <p className="mt-5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.2em] text-teal"><Sparkles size={13} />Learning assistant</p>
     <h3 className="mt-2 font-['Manrope'] text-xl font-bold tracking-tight text-ink sm:text-2xl">Welcome to your learning space.</h3>
     <p className="mt-3 max-w-md text-xs leading-6 text-muted">Ask across your uploaded materials, simplify difficult ideas, create summaries, or generate a study tool when you are ready.</p>
@@ -209,7 +210,7 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
 
   return <main className="flex h-screen flex-col overflow-hidden bg-canvas">
     <nav className="flex h-[68px] shrink-0 items-center justify-between border-b border-line bg-white px-3 sm:px-5">
-      <div className="flex min-w-0 items-center gap-3"><div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-midnight text-[10px] font-bold text-white shadow-sm">IC</div><span className="truncate font-['Manrope'] text-sm font-bold text-ink">ICU Learning Workspace</span></div>
+      <div className="flex min-w-0 items-center gap-3"><BrandLogo className="h-9 w-9 rounded-xl border border-line bg-white p-0.5 shadow-sm" /><span className="truncate font-['Manrope'] text-sm font-bold text-ink">ICU Learning Workspace</span></div>
       <div className="flex items-center gap-1 sm:gap-2"><button onClick={() => setMobilePane('documents')} className="rounded-xl p-2.5 text-muted hover:bg-slate-50 hover:text-ink lg:hidden" aria-label="Open learning materials"><Files size={17} /></button><button onClick={() => setMobilePane('tools')} className="rounded-xl p-2.5 text-muted hover:bg-slate-50 hover:text-ink lg:hidden" aria-label="Open study tools"><PanelRight size={17} /></button><button title="Help" aria-label="Help" className="hidden rounded-xl p-2.5 text-muted hover:bg-slate-50 hover:text-ink sm:grid"><HelpCircle size={17} /></button><button onClick={() => onNavigate('/chat')} className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2.5 text-[11px] font-semibold text-ink transition hover:border-brandblue/30 hover:bg-brandblue/[.04]"><span className="hidden sm:inline">General Chat</span><span className="sm:hidden">Chat</span><ChevronDown size={13} className="text-muted" /></button></div>
     </nav>
     <ResizableWorkspace left={documentsPanel} center={chatPanel} right={toolsPanel} mobilePane={mobilePane} onCloseMobilePane={() => setMobilePane(null)} leftUnbounded={selectedFile?.type?.toLowerCase() === 'pdf'} />

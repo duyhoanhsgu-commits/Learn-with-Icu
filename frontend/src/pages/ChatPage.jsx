@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import MessageList from '../components/chat/MessageList'
 import SuggestedPrompts from '../components/chat/SuggestedPrompts'
 import ChatInput from '../components/chat/ChatInput'
+import BrandLogo from '../components/common/BrandLogo'
 import { generalPrompts } from '../data/mockData'
 import { askGeneralQuestion, toFrontendSources } from '../api/chat'
 
@@ -47,7 +48,7 @@ export default function ChatPage({ onNavigate }) {
 
   return <main className="flex h-[100dvh] flex-col overflow-hidden bg-canvas">
     <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-line bg-white px-4 sm:px-8">
-      <div className="flex min-w-0 items-center gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-navy text-[10px] font-bold text-white shadow-[0_7px_18px_rgba(11,25,48,.14)]">IC</div><div className="min-w-0"><h1 className="truncate font-['Manrope'] text-sm font-bold text-ink">ICU Tutor</h1><p className="mt-0.5 truncate text-[10px] text-muted">Your AI learning companion</p></div></div>
+      <div className="flex min-w-0 items-center gap-3"><BrandLogo className="h-10 w-10 rounded-xl bg-white p-0.5 shadow-[0_7px_18px_rgba(11,25,48,.14)] ring-1 ring-line" /><div className="min-w-0"><h1 className="truncate font-['Manrope'] text-sm font-bold text-ink">ICU Tutor</h1><p className="mt-0.5 truncate text-[10px] text-muted">Your AI learning companion</p></div></div>
       <button onClick={() => onNavigate('/learn')} className="flex shrink-0 items-center gap-2 rounded-xl bg-navy px-3.5 py-2.5 text-xs font-semibold text-white shadow-[0_6px_16px_rgba(11,25,48,.13)] transition hover:-translate-y-0.5 hover:bg-teal hover:shadow-[0_8px_20px_rgba(18,184,170,.2)] sm:px-4"><BookOpen size={15} /><span className="hidden sm:inline">Learn with your files</span><span className="sm:hidden">Your files</span></button>
     </header>
 
@@ -55,7 +56,7 @@ export default function ChatPage({ onNavigate }) {
       {messages.length ? <MessageList messages={messages} isTyping={isTyping} /> : <section className="relative flex h-full min-h-[390px] flex-col items-center justify-center overflow-hidden px-5 pb-4 pt-6 text-center sm:px-8">
         <div aria-hidden="true" className="general-hero-glow absolute left-1/2 top-[46%] h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full" />
         <div className="general-hero-content relative z-10 flex flex-col items-center">
-          <div className="grid h-20 w-20 place-items-center rounded-[20px] bg-navy text-base font-bold text-white shadow-[0_18px_42px_rgba(11,25,48,.2)]">IC</div>
+          <BrandLogo className="h-20 w-20 rounded-[20px] border border-line bg-white p-2 shadow-[0_18px_42px_rgba(11,25,48,.16)]" />
           <p className="mt-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.22em] text-teal"><Sparkles size={13} />ICU Tutor</p>
           <h2 className="mt-3 max-w-[700px] font-['Manrope'] text-[32px] font-bold leading-[1.12] tracking-[-.035em] text-navy sm:text-[42px] lg:text-[48px]">What would you like to learn today?</h2>
           <p className="mt-4 max-w-xl text-[15px] leading-7 text-muted sm:text-[17px]">Ask a question, explore a new topic, or test what you already know.</p>
