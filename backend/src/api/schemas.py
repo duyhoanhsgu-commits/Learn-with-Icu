@@ -81,9 +81,13 @@ class ChatQueryResponse(BaseModel):
 
 
 # --- Learning Tool Schemas ---
-class QuizGenerateRequest(BaseModel):
+class LearningToolGenerateRequest(BaseModel):
     space_id: str
     prompt: str = Field(..., min_length=1, max_length=2000)
+
+
+class QuizGenerateRequest(LearningToolGenerateRequest):
+    pass
 
 
 class QuizQuestion(BaseModel):
@@ -99,5 +103,20 @@ class QuizResponse(BaseModel):
     prompt: str
     question_count: int
     questions: List[QuizQuestion]
+    space_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class MindMapNode(BaseModel):
+    label: str = Field(..., min_length=1, max_length=160)
+    description: str = Field(default="", max_length=500)
+    children: List["MindMapNode"] = Field(default_factory=list, max_length=12)
+
+
+class MindMapResponse(BaseModel):
+    id: str
+    title: str
+    prompt: str
+    root: MindMapNode
     space_id: Optional[str] = None
     created_at: Optional[datetime] = None
