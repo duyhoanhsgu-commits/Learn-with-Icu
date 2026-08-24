@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, ChevronLeft, ChevronRight, FileText, LoaderCircle, ScanLine, Send, X } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, FileText, LoaderCircle, PanelLeftClose, ScanLine, Send, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/TextLayer.css'
@@ -12,7 +12,7 @@ function PdfViewer({ file, width }) {
   const [pages, setPages] = useState(0)
   const [page, setPage] = useState(1)
   const availableWidth = width < 640 ? width - 56 : width < 1024 ? width - 112 : width - 160
-  const pageWidth = Math.min(920, Math.max(280, availableWidth))
+  const pageWidth = Math.min(920, Math.max(180, availableWidth))
 
   return <div className="relative h-full bg-[#eef3fa]">
     <div className="h-full overflow-y-auto px-3 pb-28 pt-4">
@@ -33,7 +33,7 @@ function AskPopover({ position, excerpt, imageDataUrl, onAsk, onClose }) {
   return <form onSubmit={submit} style={{ left: position.x, top: position.y }} className="absolute z-50 w-[min(300px,calc(100%-24px))] -translate-x-1/2 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl"><div className="mb-2 flex items-center justify-between"><span className="text-[10px] font-bold tracking-[.15em] text-teal">ASK AI</span><button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={14} /></button></div>{imageDataUrl && <img src={imageDataUrl} alt="Captured document area" className="mb-2 max-h-28 w-full rounded-lg border border-slate-200 bg-slate-50 object-contain" />}{excerpt && <p className="mb-2 line-clamp-2 rounded-lg bg-slate-50 px-2 py-1.5 text-[10px] leading-4 text-slate-500">“{excerpt}”</p>}<div className="flex gap-2"><input autoFocus value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask about this..." className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-teal" /><button aria-label="Ask AI" disabled={!question.trim()} className="grid w-9 place-items-center rounded-lg bg-navy text-white disabled:bg-slate-200"><Send size={14} /></button></div></form>
 }
 
-export default function DocumentViewer({ file, onExit, onAsk }) {
+export default function DocumentViewer({ file, onExit, onAsk, onCollapse }) {
   const [text, setText] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -175,7 +175,7 @@ export default function DocumentViewer({ file, onExit, onAsk }) {
   return <div ref={viewerRef} onPointerDown={(event) => { if (!cropMode) pointerDown(event) }} onPointerUp={(event) => { if (!cropMode) pointerUp(event) }} className="tool-page relative flex h-full min-w-0 flex-col overflow-hidden bg-[#eef3fa]">
     <header className="relative z-40 flex h-[60px] shrink-0 items-center justify-between gap-2 border-b border-line bg-white/95 px-3 shadow-[0_4px_18px_rgba(18,33,59,.04)] backdrop-blur-xl">
       <div className="flex min-w-0 flex-1 items-center gap-2"><button onClick={onExit} aria-label="Back to documents" title="Back to documents" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line bg-white text-muted transition hover:border-teal/35 hover:bg-teal/[.05] hover:text-teal"><ArrowLeft size={16} /></button><div className="min-w-0"><p className="truncate font-['Manrope'] text-[11px] font-bold text-ink">{file.name}</p><span className="mt-0.5 block text-[8px] font-semibold uppercase tracking-wide text-muted">{file.type} · {file.size}</span></div></div>
-      {type === 'pdf' && <button title={cropMode ? 'Cancel capture' : 'Capture area'} aria-label={cropMode ? 'Cancel capture' : 'Capture area'} onClick={() => { setCropMode((value) => !value); setAskBox(null); setCropRect(null) }} className={`flex h-9 shrink-0 items-center gap-1.5 rounded-xl border px-2.5 text-[10px] font-semibold transition ${cropMode ? 'border-teal bg-teal text-white shadow-[0_7px_18px_rgba(18,184,170,.2)]' : 'border-line bg-white text-ink hover:border-teal/40 hover:bg-teal/[.05] hover:text-teal'}`}><ScanLine size={14} /><span className="hidden 2xl:inline">{cropMode ? 'Cancel' : 'Capture'}</span></button>}
+      <div className="flex shrink-0 items-center gap-1.5">{type === 'pdf' && <button title={cropMode ? 'Cancel capture' : 'Capture area'} aria-label={cropMode ? 'Cancel capture' : 'Capture area'} onClick={() => { setCropMode((value) => !value); setAskBox(null); setCropRect(null) }} className={`flex h-9 shrink-0 items-center gap-1.5 rounded-xl border px-2.5 text-[10px] font-semibold transition ${cropMode ? 'border-teal bg-teal text-white shadow-[0_7px_18px_rgba(18,184,170,.2)]' : 'border-line bg-white text-ink hover:border-teal/40 hover:bg-teal/[.05] hover:text-teal'}`}><ScanLine size={14} /><span className="hidden 2xl:inline">{cropMode ? 'Cancel' : 'Capture'}</span></button>}{onCollapse && <button onClick={onCollapse} title="Collapse document panel" aria-label="Collapse library panel" className="hidden h-9 w-9 place-items-center rounded-xl border border-line bg-white text-muted transition hover:border-teal/35 hover:bg-teal/[.05] hover:text-teal lg:grid"><PanelLeftClose size={16} /></button>}</div>
     </header>
     <main className="relative min-h-0 flex-1">{content}</main>
     {cropMode && <div onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} className="absolute inset-0 z-[35] cursor-crosshair touch-none select-none"><div className="pointer-events-none absolute left-1/2 top-[72px] z-30 -translate-x-1/2 whitespace-nowrap rounded-full border border-white/10 bg-navy/95 px-3 py-2 text-center text-[9px] font-semibold text-white shadow-[0_10px_28px_rgba(11,25,48,.25)]"><span className="block">Drag to select for ICU</span><span className="mt-0.5 block text-[8px] font-normal text-slate-300">Release to confirm</span></div>{cropRect && <div style={cropRect} className="pointer-events-none absolute border-2 border-teal bg-teal/15 shadow-[0_0_0_9999px_rgba(11,25,48,.32)]"><span className="absolute -top-6 left-0 rounded-md bg-teal px-2 py-1 text-[8px] font-bold uppercase tracking-wide text-white">Release to confirm</span></div>}</div>}

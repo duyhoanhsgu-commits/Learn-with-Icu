@@ -1,4 +1,4 @@
-import { BrainCircuit, ChevronRight, LibraryBig, LoaderCircle, Network, RotateCcw, Sparkles, Trash2 } from 'lucide-react'
+import { BrainCircuit, ChevronRight, LibraryBig, LoaderCircle, Network, PanelRightClose, RotateCcw, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toolsApi } from '../../api/tools'
 import FlashcardPlayer from './FlashcardPlayer'
@@ -27,7 +27,7 @@ function itemMetadata(type, item) {
   return `${item.card_count} cards`
 }
 
-export default function ToolsPanel({ disabled, spaceId }) {
+export default function ToolsPanel({ disabled, spaceId, onCollapse }) {
   const [active, setActive] = useState('quiz')
   const [prompts, setPrompts] = useState(loadPrompts)
   const [savedTools, setSavedTools] = useState({ quiz: [], mindmap: [], flashcards: [] })
@@ -94,14 +94,14 @@ export default function ToolsPanel({ disabled, spaceId }) {
     }
   }
 
-  if (openTool?.type === 'quiz') return <QuizPlayer quiz={openTool.item} onExit={() => setOpenTool(null)} />
-  if (openTool?.type === 'mindmap') return <MindMapViewer mindmap={openTool.item} onExit={() => setOpenTool(null)} />
-  if (openTool?.type === 'flashcards') return <FlashcardPlayer flashcards={openTool.item} onExit={() => setOpenTool(null)} />
+  if (openTool?.type === 'quiz') return <div className="relative h-full"><PanelCollapseButton onCollapse={onCollapse} /><QuizPlayer quiz={openTool.item} onExit={() => setOpenTool(null)} /></div>
+  if (openTool?.type === 'mindmap') return <div className="relative h-full"><PanelCollapseButton onCollapse={onCollapse} /><MindMapViewer mindmap={openTool.item} onExit={() => setOpenTool(null)} /></div>
+  if (openTool?.type === 'flashcards') return <div className="relative h-full"><PanelCollapseButton onCollapse={onCollapse} /><FlashcardPlayer flashcards={openTool.item} onExit={() => setOpenTool(null)} /></div>
 
   return <aside className="flex h-full min-w-0 flex-col border-l border-line bg-white">
     <header className="shrink-0 px-5 pb-4 pt-5">
       <p className="text-[9px] font-bold uppercase tracking-[.2em] text-teal">Study tools</p>
-      <div className="mt-1 flex items-center justify-between"><h2 className="font-['Manrope'] text-base font-bold text-ink">Learn your way</h2><Sparkles size={16} className="text-violet" /></div>
+      <div className="mt-1 flex items-center justify-between"><h2 className="font-['Manrope'] text-base font-bold text-ink">Learn your way</h2><div className="flex items-center gap-2"><Sparkles size={16} className="text-violet" />{onCollapse && <button onClick={onCollapse} title="Collapse study tools" aria-label="Collapse study tools panel" className="hidden h-9 w-9 place-items-center rounded-xl border border-line bg-white text-muted transition hover:border-brandblue/30 hover:bg-brandblue/[.05] hover:text-brandblue lg:grid"><PanelRightClose size={17} /></button>}</div></div>
     </header>
 
     <div className="grid grid-cols-3 gap-2 px-4 pb-4 sm:px-5">
@@ -125,4 +125,9 @@ export default function ToolsPanel({ disabled, spaceId }) {
       {activeItems.length > 0 && <section className="mt-5"><div className="mb-2.5 flex items-center justify-between"><p className="text-[9px] font-bold uppercase tracking-[.16em] text-muted">Saved {selected.savedLabel}</p><span className="rounded-full bg-white px-2 py-0.5 text-[9px] font-semibold text-muted shadow-sm">{activeItems.length}</span></div><div className="space-y-2">{activeItems.map((item) => <div key={item.id} className="group flex items-center gap-2 rounded-[14px] border border-line bg-white p-2.5 shadow-sm transition hover:border-brandblue/25"><button onClick={() => setOpenTool({ type: active, item })} className="flex min-w-0 flex-1 items-center gap-3 text-left"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-teal/10 text-teal"><SelectedIcon size={15} /></span><span className="min-w-0 flex-1"><span className="block truncate text-[11px] font-semibold text-ink">{item.title}</span><span className="mt-0.5 block text-[9px] text-muted">{itemMetadata(active, item)}</span></span><ChevronRight size={14} className="shrink-0 text-slate-300" /></button><button onClick={() => deleteSavedTool(active, item.id)} title={`Delete ${selected.name.toLowerCase()}`} aria-label={`Delete ${item.title}`} className="rounded-lg p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500"><Trash2 size={13} /></button></div>)}</div></section>}
     </div>
   </aside>
+}
+
+function PanelCollapseButton({ onCollapse }) {
+  if (!onCollapse) return null
+  return <button onClick={onCollapse} title="Collapse study tools" aria-label="Collapse study tools panel" className="absolute right-3 top-3 z-30 hidden h-9 w-9 place-items-center rounded-xl border border-line bg-white/95 text-muted shadow-sm backdrop-blur transition hover:border-brandblue/30 hover:bg-brandblue/[.05] hover:text-brandblue lg:grid"><PanelRightClose size={17} /></button>
 }
