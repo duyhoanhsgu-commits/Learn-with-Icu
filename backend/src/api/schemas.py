@@ -120,3 +120,18 @@ class MindMapResponse(BaseModel):
     root: MindMapNode
     space_id: Optional[str] = None
     created_at: Optional[datetime] = None
+
+
+class Flashcard(BaseModel):
+    front: str = Field(..., min_length=1, max_length=500)
+    back: str = Field(..., min_length=1, max_length=1200)
+
+
+class FlashcardSetResponse(BaseModel):
+    id: str
+    title: str
+    prompt: str
+    card_count: int
+    cards: List[Flashcard]
+    space_id: Optional[str] = None
+    created_at: Optional[datetime] = None

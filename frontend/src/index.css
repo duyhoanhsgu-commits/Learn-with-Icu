@@ -3,13 +3,44 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --icu-midnight: #071427;
+  --icu-navy: #0b1930;
+  --icu-surface: #ffffff;
+  --icu-canvas: #f7f8fc;
+  --icu-teal: #12b8aa;
+  --icu-blue: #3485f5;
+  --icu-violet: #7867f4;
+  --icu-text: #12213b;
+  --icu-muted: #70809a;
+  --icu-border: #e6eaf2;
+  --icu-midnight-rgb: 7 20 39;
+  --icu-navy-rgb: 11 25 48;
+  --icu-surface-rgb: 255 255 255;
+  --icu-canvas-rgb: 247 248 252;
+  --icu-teal-rgb: 18 184 170;
+  --icu-blue-rgb: 52 133 245;
+  --icu-violet-rgb: 120 103 244;
+  --icu-text-rgb: 18 33 59;
+  --icu-muted-rgb: 112 128 154;
+  --icu-border-rgb: 230 234 242;
+  --icu-shadow: 0 12px 34px rgba(18, 33, 59, 0.08);
+}
+
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
-body { margin: 0; min-width: 320px; background: #fafaf8; color: #111827; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
-button, textarea { font: inherit; }
+body { margin: 0; min-width: 320px; background: var(--icu-canvas); color: var(--icu-text); font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+button, textarea, input, select { font: inherit; }
 button { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--icu-blue); outline-offset: 2px; }
+::selection { background: rgba(52, 133, 245, .2); }
 ::-webkit-scrollbar { width: 7px; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+::-webkit-scrollbar-thumb { background: #cbd4e2; border-radius: 99px; }
+
+.icu-gradient { background: linear-gradient(135deg, var(--icu-teal), var(--icu-blue)); }
+.icu-action-gradient { background: linear-gradient(135deg, var(--icu-blue), var(--icu-violet)); }
+.icu-soft-shadow { box-shadow: var(--icu-shadow); }
+.icu-panel { border-color: var(--icu-border); background: var(--icu-surface); }
 .document-markdown { color: #334155; font-size: 14px; line-height: 1.75; }
 .document-markdown h1, .document-markdown h2, .document-markdown h3 { margin: 1.25em 0 .5em; color: #0f172a; font-family: Manrope, sans-serif; font-weight: 700; }
 .document-markdown h1 { font-size: 1.5rem; }
@@ -21,7 +52,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .assistant-markdown { overflow-wrap: anywhere; font-size: 14px; line-height: 1.75; }
 .assistant-markdown > :first-child { margin-top: 0; }
 .assistant-markdown > :last-child { margin-bottom: 0; }
-.assistant-markdown h1, .assistant-markdown h2, .assistant-markdown h3 { margin: 1.2em 0 .55em; color: #0f172a; font-family: Manrope, sans-serif; font-weight: 700; line-height: 1.35; }
+.assistant-markdown h1, .assistant-markdown h2, .assistant-markdown h3 { margin: 1.2em 0 .55em; color: var(--icu-text); font-family: Manrope, sans-serif; font-weight: 700; line-height: 1.35; }
 .assistant-markdown h1 { font-size: 1.35rem; }
 .assistant-markdown h2 { border-bottom: 1px solid #e2e8f0; padding-bottom: .35rem; font-size: 1.1rem; }
 .assistant-markdown h3 { font-size: .95rem; }

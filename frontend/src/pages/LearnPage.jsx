@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { AlertCircle, ArrowLeft, CheckCircle2, FolderOpen, RotateCcw, Upload } from 'lucide-react'
+import { AlertCircle, CheckCircle2, ChevronDown, FileText, Files, FolderOpen, HelpCircle, Layers3, PanelRight, RotateCcw, Sparkles } from 'lucide-react'
 import MessageList from '../components/chat/MessageList'
 import SuggestedPrompts from '../components/chat/SuggestedPrompts'
 import ChatInput from '../components/chat/ChatInput'
@@ -19,6 +19,22 @@ const openingMessage = (space) => ({
     : `“${space.name}” is ready.\n\nUpload one or more documents to build the knowledge base for this learning space.`,
 })
 
+function WorkspaceWelcome({ space, files }) {
+  const currentFile = files[0]
+  return <div className="mx-auto flex h-full w-full max-w-[760px] flex-col items-center justify-center px-5 py-8 text-center sm:px-8">
+    <div className="icu-action-gradient grid h-14 w-14 place-items-center rounded-full text-xs font-bold text-white shadow-[0_12px_28px_rgba(52,133,245,.25)]">IC</div>
+    <p className="mt-5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.2em] text-teal"><Sparkles size={13} />Learning assistant</p>
+    <h3 className="mt-2 font-['Manrope'] text-xl font-bold tracking-tight text-ink sm:text-2xl">Welcome to your learning space.</h3>
+    <p className="mt-3 max-w-md text-xs leading-6 text-muted">Ask across your uploaded materials, simplify difficult ideas, create summaries, or generate a study tool when you are ready.</p>
+    <div className="mt-6 flex w-full max-w-md items-center gap-3 rounded-2xl border border-line bg-white p-3.5 text-left shadow-sm">
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brandblue/10 text-brandblue"><FileText size={18} /></div>
+      <div className="min-w-0 flex-1"><p className="text-[9px] font-bold uppercase tracking-[.15em] text-muted">Your materials</p><p className="mt-1 truncate text-xs font-semibold text-ink">{currentFile?.name || 'No document selected'}</p></div>
+      <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[9px] font-semibold text-muted"><Layers3 size={11} />{files.length} {files.length === 1 ? 'file' : 'files'}</div>
+    </div>
+    {!files.length && <p className="mt-4 text-[10px] font-medium text-amber-600">Upload a document from the Materials panel to begin.</p>}
+  </div>
+}
+
 export default function LearnPage({ learningSpaces, setLearningSpaces, documentsState, onNavigate }) {
   const [activeSpaceId, setActiveSpaceId] = useState(learningSpaces[0]?.id || null)
   const [messagesBySpace, setMessagesBySpace] = useState(() => Object.fromEntries(learningSpaces.map((space) => [space.id, [openingMessage(space)]])))
@@ -26,6 +42,7 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
   const [isTyping, setIsTyping] = useState(false)
   const [selectedFileId, setSelectedFileId] = useState(null)
   const [notice, setNotice] = useState(null)
+  const [mobilePane, setMobilePane] = useState(null)
   const timerRef = useRef(null)
   const sessionIdsRef = useRef({})
   const activeSpace = learningSpaces.find((space) => space.id === activeSpaceId) || null
@@ -177,7 +194,24 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
         ? 'Your files are being prepared...'
         : `Ask anything in ${activeSpace.name}...`
 
-  const chatPanel = <section className="flex h-full min-w-0 flex-col bg-canvas"><header className="flex h-[68px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4"><div className="min-w-0"><p className="text-[10px] font-bold tracking-[.18em] text-teal">SPACE CHAT</p><h2 className="mt-1 truncate font-['Manrope'] text-sm font-bold">{activeSpace?.name || 'Learning Space'}</h2></div><button onClick={restart} disabled={!activeSpace} title="Restart chat" className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-teal disabled:opacity-30"><RotateCcw size={16} /></button></header>{(notice || documentsState.error) && <div className={`m-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${notice?.type === 'success' && !documentsState.error ? 'border-teal/20 bg-[#edf9f6] text-[#08786e]' : 'border-red-200 bg-red-50 text-red-700'}`}>{notice?.type === 'success' && !documentsState.error ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}<span className="flex-1">{documentsState.error ? `API unavailable: ${documentsState.error}` : notice.message}</span><button onClick={() => setNotice(null)}>×</button></div>}<div className="min-h-0 flex-1 overflow-y-auto">{activeSpace ? <MessageList messages={messages} isTyping={isTyping} /> : <div className="grid h-full place-items-center px-6 text-center"><div><FolderOpen className="mx-auto text-slate-300" /><p className="mt-3 text-sm font-semibold">Create a Learning Space</p></div></div>}</div><div className="shrink-0 border-t border-slate-200 bg-canvas pb-3 pt-3">{activeSpace && !activeSpace.files.length ? <div className="mx-4 mb-3 flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 py-3 text-xs text-slate-500"><Upload size={15} className="text-teal" />Upload a document to begin</div> : <SuggestedPrompts prompts={filePrompts} onSelect={(prompt) => !unavailable && setDraft(prompt)} />}<ChatInput value={draft} onChange={setDraft} onSubmit={send} disabled={unavailable || isTyping} placeholder={placeholder} /></div></section>
+  const chatPanel = <section className="flex h-full min-w-0 flex-col bg-canvas">
+    <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-line bg-white px-4 sm:px-6">
+      <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-[.2em] text-teal">Learning Chat</p><h2 className="mt-1 truncate font-['Manrope'] text-base font-bold text-ink">{activeSpace?.name || 'Learning Space'}</h2></div>
+      <button onClick={restart} disabled={!activeSpace} title="Reset conversation" aria-label="Reset conversation" className="rounded-xl border border-line p-2.5 text-muted transition hover:border-teal/30 hover:bg-teal/[.05] hover:text-teal disabled:opacity-30"><RotateCcw size={15} /></button>
+    </header>
+    {(notice || documentsState.error) && <div className={`mx-4 mt-3 flex items-center gap-2 rounded-xl border px-3 py-2.5 text-[11px] sm:mx-6 ${notice?.type === 'success' && !documentsState.error ? 'border-teal/20 bg-teal/[.06] text-[#08786e]' : 'border-red-200 bg-red-50 text-red-700'}`}>{notice?.type === 'success' && !documentsState.error ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}<span className="flex-1">{documentsState.error ? `API unavailable: ${documentsState.error}` : notice.message}</span><button onClick={() => setNotice(null)} aria-label="Dismiss notification" className="rounded p-1">×</button></div>}
+    <div className="min-h-0 flex-1 overflow-y-auto">{activeSpace ? (messages.length <= 1 && !isTyping ? <WorkspaceWelcome space={activeSpace} files={readyFiles} /> : <MessageList messages={messages} isTyping={isTyping} />) : <div className="grid h-full place-items-center px-6 text-center"><div><FolderOpen className="mx-auto text-slate-300" /><p className="mt-3 text-sm font-semibold">Create a Learning Space</p></div></div>}</div>
+    <div className="shrink-0 border-t border-line bg-canvas pb-3 pt-3"><SuggestedPrompts prompts={filePrompts} onSelect={(prompt) => !unavailable && setDraft(prompt)} /><ChatInput value={draft} onChange={setDraft} onSubmit={send} disabled={unavailable || isTyping} placeholder={indexedFiles.length ? 'Ask anything about your materials…' : placeholder} /></div>
+  </section>
 
-  return <main className="flex h-screen flex-col overflow-hidden bg-canvas"><div className="flex h-12 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4"><div className="flex items-center gap-2"><div className="grid h-7 w-7 place-items-center rounded-lg bg-navy text-[9px] font-bold text-white">IC</div><span className="font-['Manrope'] text-sm font-bold">ICU Learning Workspace</span></div><button onClick={() => onNavigate('/chat')} className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-teal"><ArrowLeft size={14} />General Chat</button></div><ResizableWorkspace left={<DocumentsPanel spaces={learningSpaces} activeSpace={activeSpace} onSelectSpace={selectSpace} onCreateSpace={createSpace} onUpload={upload} onDeleteFile={deleteFile} selectedFile={selectedFile} onSelectFile={setSelectedFileId} onAsk={(question, excerpt, imageDataUrl) => send(excerpt ? `${question}\n\nSelected document excerpt:\n${excerpt}` : question, imageDataUrl)} />} center={chatPanel} right={<ToolsPanel disabled={unavailable || isTyping} onUseTool={send} spaceId={activeSpace?.id} />} /></main>
+  const documentsPanel = <DocumentsPanel spaces={learningSpaces} activeSpace={activeSpace} onSelectSpace={selectSpace} onCreateSpace={createSpace} onUpload={upload} onDeleteFile={deleteFile} selectedFile={selectedFile} onSelectFile={setSelectedFileId} onAsk={(question, excerpt, imageDataUrl) => send(excerpt ? `${question}\n\nSelected document excerpt:\n${excerpt}` : question, imageDataUrl)} />
+  const toolsPanel = <ToolsPanel disabled={unavailable || isTyping} onUseTool={send} spaceId={activeSpace?.id} />
+
+  return <main className="flex h-screen flex-col overflow-hidden bg-canvas">
+    <nav className="flex h-[68px] shrink-0 items-center justify-between border-b border-line bg-white px-3 sm:px-5">
+      <div className="flex min-w-0 items-center gap-3"><div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-midnight text-[10px] font-bold text-white shadow-sm">IC</div><span className="truncate font-['Manrope'] text-sm font-bold text-ink">ICU Learning Workspace</span></div>
+      <div className="flex items-center gap-1 sm:gap-2"><button onClick={() => setMobilePane('documents')} className="rounded-xl p-2.5 text-muted hover:bg-slate-50 hover:text-ink xl:hidden" aria-label="Open learning materials"><Files size={17} /></button><button onClick={() => setMobilePane('tools')} className="rounded-xl p-2.5 text-muted hover:bg-slate-50 hover:text-ink xl:hidden" aria-label="Open study tools"><PanelRight size={17} /></button><button title="Help" aria-label="Help" className="hidden rounded-xl p-2.5 text-muted hover:bg-slate-50 hover:text-ink sm:grid"><HelpCircle size={17} /></button><button onClick={() => onNavigate('/chat')} className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2.5 text-[11px] font-semibold text-ink transition hover:border-brandblue/30 hover:bg-brandblue/[.04]"><span className="hidden sm:inline">General Chat</span><span className="sm:hidden">Chat</span><ChevronDown size={13} className="text-muted" /></button></div>
+    </nav>
+    <ResizableWorkspace left={documentsPanel} center={chatPanel} right={toolsPanel} mobilePane={mobilePane} onCloseMobilePane={() => setMobilePane(null)} />
+  </main>
 }
