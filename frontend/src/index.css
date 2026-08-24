@@ -66,6 +66,7 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-
 .react-pdf__Page { margin-inline: auto; box-shadow: 0 8px 28px rgba(15, 23, 42, .12); }
 .pdf-reading-frame .react-pdf__Page { background: white; box-shadow: 0 2px 12px rgba(18, 33, 59, .09); }
 .pdf-reading-frame .react-pdf__Page canvas { display: block; max-width: none; }
+.pdf-scroll-area { scrollbar-gutter: stable; -webkit-overflow-scrolling: touch; }
 .assistant-markdown { overflow-wrap: anywhere; font-size: 14px; line-height: 1.75; }
 .assistant-markdown > :first-child { margin-top: 0; }
 .assistant-markdown > :last-child { margin-bottom: 0; }

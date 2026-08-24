@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, ChevronLeft, ChevronRight, FileText, LoaderCircle, PanelLeftClose, ScanLine, Send, X } from 'lucide-react'
+import { ArrowLeft, FileText, LoaderCircle, PanelLeftClose, ScanLine, Send, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/TextLayer.css'
@@ -8,17 +8,46 @@ import { documentContentUrl, documentTextUrl } from '../../api/documents'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString()
 
-function PdfViewer({ file, width }) {
+function ContinuousPdfPage({ pageNumber, pages, pageWidth, scrollRef }) {
+  const pageRef = useRef(null)
+  const [visible, setVisible] = useState(pageNumber <= 2)
+  const [aspectRatio, setAspectRatio] = useState(1.414)
+
+  useEffect(() => {
+    const pageElement = pageRef.current
+    const scrollElement = scrollRef.current
+    if (!pageElement || !scrollElement || !('IntersectionObserver' in window)) {
+      setVisible(true)
+      return undefined
+    }
+
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), {
+      root: scrollElement,
+      rootMargin: '1200px 0px',
+    })
+    observer.observe(pageElement)
+    return () => observer.disconnect()
+  }, [scrollRef])
+
+  const estimatedHeight = Math.round(pageWidth * aspectRatio) + 34
+
+  return <section ref={pageRef} style={{ minHeight: estimatedHeight }} className="relative shrink-0">
+    <p className="mb-1.5 text-center text-[9px] font-semibold text-muted">Page {pageNumber} of {pages}</p>
+    {visible
+      ? <div className="pdf-reading-frame mx-auto w-fit overflow-hidden rounded-xl border border-white/80 bg-white p-2 shadow-[0_16px_40px_rgba(35,55,85,.14)]"><Page pageNumber={pageNumber} width={pageWidth} renderTextLayer renderAnnotationLayer onLoadSuccess={(pdfPage) => { const viewport = pdfPage.getViewport({ scale: 1 }); setAspectRatio(viewport.height / viewport.width) }} /></div>
+      : <div style={{ width: pageWidth, height: Math.round(pageWidth * aspectRatio) }} className="mx-auto rounded-xl border border-white/80 bg-white/70 shadow-sm" />}
+  </section>
+}
+
+function PdfViewer({ file, width, scrollRef }) {
   const [pages, setPages] = useState(0)
-  const [page, setPage] = useState(1)
   const availableWidth = width < 640 ? width - 56 : width < 1024 ? width - 112 : width - 160
   const pageWidth = Math.min(920, Math.max(180, availableWidth))
 
-  return <div className="relative h-full bg-[#eef3fa]">
-    <div className="h-full overflow-y-auto px-3 pb-28 pt-4">
-      <Document className="pdf-reading-frame mx-auto w-fit overflow-hidden rounded-xl border border-white/80 bg-white p-2 shadow-[0_16px_40px_rgba(35,55,85,.14)]" file={documentContentUrl(file.id)} loading={<div className="grid h-64 w-[min(90vw,720px)] place-items-center"><div className="text-center"><LoaderCircle className="mx-auto animate-spin text-teal" /><p className="mt-3 text-xs text-muted">Preparing your document…</p></div></div>} onLoadSuccess={({ numPages }) => { setPages(numPages); setPage(1) }}><Page pageNumber={page} width={pageWidth} renderTextLayer renderAnnotationLayer /></Document>
+  return <div className="absolute inset-0 overflow-hidden bg-[#eef3fa]">
+    <div ref={scrollRef} role="region" aria-label="Scrollable PDF document" tabIndex={0} className="pdf-scroll-area absolute inset-0 min-h-0 min-w-0 overflow-auto overscroll-contain px-3 pb-8 pt-4 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brandblue/40">
+      <Document className="mx-auto flex w-fit min-w-fit flex-col gap-4" file={documentContentUrl(file.id)} loading={<div className="grid h-64 w-[min(90vw,720px)] place-items-center"><div className="text-center"><LoaderCircle className="mx-auto animate-spin text-teal" /><p className="mt-3 text-xs text-muted">Preparing your document…</p></div></div>} onLoadSuccess={({ numPages }) => { setPages(numPages); scrollRef.current?.scrollTo({ top: 0, left: 0 }) }}>{Array.from({ length: pages }, (_, index) => <ContinuousPdfPage key={index + 1} pageNumber={index + 1} pages={pages} pageWidth={pageWidth} scrollRef={scrollRef} />)}</Document>
     </div>
-    {pages > 1 && <div className="pointer-events-none absolute inset-x-0 bottom-3 z-30 flex justify-center px-3 sm:bottom-5"><div className="pointer-events-auto flex w-full max-w-[520px] items-center gap-2 rounded-2xl border border-line bg-white/95 p-2 shadow-[0_14px_38px_rgba(18,33,59,.16)] backdrop-blur-xl"><button disabled={page === 1} onClick={() => setPage((value) => value - 1)} className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-line px-3 text-[11px] font-semibold text-ink transition hover:border-teal/35 hover:bg-teal/[.05] hover:text-teal disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300"><ChevronLeft size={15} />Previous</button><span className="shrink-0 px-2 text-center text-[10px] font-semibold text-muted sm:px-4">Page <strong className="font-bold text-ink">{page}</strong> of {pages}</span><button disabled={page === pages} onClick={() => setPage((value) => value + 1)} className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-line px-3 text-[11px] font-semibold text-ink transition hover:border-teal/35 hover:bg-teal/[.05] hover:text-teal disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300">Next<ChevronRight size={15} /></button></div></div>}
   </div>
 }
 
@@ -43,6 +72,7 @@ export default function DocumentViewer({ file, onExit, onAsk, onCollapse }) {
   const [cropRect, setCropRect] = useState(null)
   const dragStartRef = useRef(null)
   const viewerRef = useRef(null)
+  const pdfScrollRef = useRef(null)
   const type = file?.type?.toLowerCase()
 
   useEffect(() => {
@@ -166,7 +196,7 @@ export default function DocumentViewer({ file, onExit, onAsk, onCollapse }) {
 
   if (!file) return <div className="grid h-full place-items-center bg-slate-50 px-6 text-center"><div><FileText className="mx-auto text-slate-300" size={34} /><p className="mt-3 text-sm font-semibold text-slate-600">Select a document</p><p className="mt-1 text-xs text-slate-400">PDF, Word and Markdown previews appear here.</p></div></div>
   let content
-  if (type === 'pdf') content = <PdfViewer file={file} width={width} />
+  if (type === 'pdf') content = <PdfViewer file={file} width={width} scrollRef={pdfScrollRef} />
   else if (loading) content = <div className="grid h-full place-items-center"><LoaderCircle className="animate-spin text-teal" /></div>
   else if (error) content = <div className="grid h-full place-items-center bg-[#eef3fa] p-5 text-sm text-red-600">{error}</div>
   else if (type === 'md' || type === 'markdown') content = <div className="h-full overflow-y-auto bg-[#eef3fa] p-3"><article className="document-markdown mx-auto min-h-full rounded-xl border border-line bg-white p-5 shadow-[0_16px_40px_rgba(35,55,85,.12)]"><ReactMarkdown>{text}</ReactMarkdown></article></div>
@@ -177,8 +207,8 @@ export default function DocumentViewer({ file, onExit, onAsk, onCollapse }) {
       <div className="flex min-w-0 flex-1 items-center gap-2"><button onClick={onExit} aria-label="Back to documents" title="Back to documents" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line bg-white text-muted transition hover:border-teal/35 hover:bg-teal/[.05] hover:text-teal"><ArrowLeft size={16} /></button><div className="min-w-0"><p className="truncate font-['Manrope'] text-[11px] font-bold text-ink">{file.name}</p><span className="mt-0.5 block text-[8px] font-semibold uppercase tracking-wide text-muted">{file.type} · {file.size}</span></div></div>
       <div className="flex shrink-0 items-center gap-1.5">{type === 'pdf' && <button title={cropMode ? 'Cancel capture' : 'Capture area'} aria-label={cropMode ? 'Cancel capture' : 'Capture area'} onClick={() => { setCropMode((value) => !value); setAskBox(null); setCropRect(null) }} className={`flex h-9 shrink-0 items-center gap-1.5 rounded-xl border px-2.5 text-[10px] font-semibold transition ${cropMode ? 'border-teal bg-teal text-white shadow-[0_7px_18px_rgba(18,184,170,.2)]' : 'border-line bg-white text-ink hover:border-teal/40 hover:bg-teal/[.05] hover:text-teal'}`}><ScanLine size={14} /><span className="hidden 2xl:inline">{cropMode ? 'Cancel' : 'Capture'}</span></button>}{onCollapse && <button onClick={onCollapse} title="Collapse document panel" aria-label="Collapse library panel" className="hidden h-9 w-9 place-items-center rounded-xl border border-line bg-white text-muted transition hover:border-teal/35 hover:bg-teal/[.05] hover:text-teal lg:grid"><PanelLeftClose size={16} /></button>}</div>
     </header>
-    <main className="relative min-h-0 flex-1">{content}</main>
-    {cropMode && <div onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} className="absolute inset-0 z-[35] cursor-crosshair touch-none select-none"><div className="pointer-events-none absolute left-1/2 top-[72px] z-30 -translate-x-1/2 whitespace-nowrap rounded-full border border-white/10 bg-navy/95 px-3 py-2 text-center text-[9px] font-semibold text-white shadow-[0_10px_28px_rgba(11,25,48,.25)]"><span className="block">Drag to select for ICU</span><span className="mt-0.5 block text-[8px] font-normal text-slate-300">Release to confirm</span></div>{cropRect && <div style={cropRect} className="pointer-events-none absolute border-2 border-teal bg-teal/15 shadow-[0_0_0_9999px_rgba(11,25,48,.32)]"><span className="absolute -top-6 left-0 rounded-md bg-teal px-2 py-1 text-[8px] font-bold uppercase tracking-wide text-white">Release to confirm</span></div>}</div>}
+    <main className="relative min-h-0 flex-1 overflow-hidden">{content}</main>
+    {cropMode && <div onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onWheel={(event) => pdfScrollRef.current?.scrollBy({ left: event.deltaX, top: event.deltaY })} className="absolute inset-0 z-[35] cursor-crosshair touch-none select-none"><div className="pointer-events-none absolute left-1/2 top-[72px] z-30 -translate-x-1/2 whitespace-nowrap rounded-full border border-white/10 bg-navy/95 px-3 py-2 text-center text-[9px] font-semibold text-white shadow-[0_10px_28px_rgba(11,25,48,.25)]"><span className="block">Drag to select for ICU</span><span className="mt-0.5 block text-[8px] font-normal text-slate-300">Release to confirm</span></div>{cropRect && <div style={cropRect} className="pointer-events-none absolute border-2 border-teal bg-teal/15 shadow-[0_0_0_9999px_rgba(11,25,48,.32)]"><span className="absolute -top-6 left-0 rounded-md bg-teal px-2 py-1 text-[8px] font-bold uppercase tracking-wide text-white">Release to confirm</span></div>}</div>}
     {askBox && <AskPopover position={askBox.position} excerpt={askBox.excerpt} imageDataUrl={askBox.imageDataUrl} onAsk={onAsk} onClose={() => setAskBox(null)} />}
   </div>
 }

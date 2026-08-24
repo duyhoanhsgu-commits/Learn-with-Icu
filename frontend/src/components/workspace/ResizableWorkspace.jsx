@@ -49,7 +49,7 @@ function RightRail({ onRestore }) {
   return <aside className="relative hidden h-full w-16 flex-col items-center gap-2 border-l border-line bg-white py-4 lg:flex"><span className="absolute left-0 top-4 h-10 w-0.5 rounded-full bg-brandblue" />{icons.map((Icon, index) => <button key={index} onClick={onRestore} title="Open study tools" aria-label="Open study tools" className={`grid h-10 w-10 place-items-center rounded-xl transition ${index === 0 ? 'bg-brandblue/10 text-brandblue' : 'text-slate-400 hover:bg-slate-100 hover:text-ink'}`}><Icon size={17} /></button>)}</aside>
 }
 
-export default function ResizableWorkspace({ left, center, right, mobilePane, onCloseMobilePane }) {
+export default function ResizableWorkspace({ left, center, right, mobilePane, onCloseMobilePane, leftUnbounded = false }) {
   const containerRef = useRef(null)
   const [layout, setLayout] = useState(loadLayout)
   const [resizing, setResizing] = useState(false)
@@ -57,6 +57,35 @@ export default function ResizableWorkspace({ left, center, right, mobilePane, on
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(layout))
   }, [layout])
+
+  useEffect(() => {
+    const constrainToViewport = () => {
+      if (window.innerWidth < 1024) return
+      setLayout((current) => {
+        const containerWidth = containerRef.current?.getBoundingClientRect().width || window.innerWidth
+        let leftWidth = leftUnbounded ? current.leftWidth : Math.min(current.leftWidth, LEFT_MAX)
+        let rightWidth = Math.min(current.rightWidth, RIGHT_MAX)
+        const available = containerWidth - MIN_CENTER_WIDTH - 12
+        let occupied = (current.leftCollapsed ? RAIL_WIDTH : leftWidth) + (current.rightCollapsed ? RAIL_WIDTH : rightWidth)
+
+        if (occupied > available && !current.rightCollapsed) {
+          const reduction = Math.min(occupied - available, rightWidth - RIGHT_MIN)
+          rightWidth -= reduction
+          occupied -= reduction
+        }
+        if (occupied > available && !current.leftCollapsed) {
+          leftWidth = Math.max(LEFT_MIN, leftWidth - (occupied - available))
+        }
+
+        if (leftWidth === current.leftWidth && rightWidth === current.rightWidth) return current
+        return { ...current, leftWidth, rightWidth }
+      })
+    }
+
+    constrainToViewport()
+    window.addEventListener('resize', constrainToViewport)
+    return () => window.removeEventListener('resize', constrainToViewport)
+  }, [leftUnbounded])
 
   const collapseLeft = () => setLayout((current) => ({ ...current, leftCollapsed: true }))
   const collapseRight = () => setLayout((current) => ({ ...current, rightCollapsed: true }))
@@ -75,7 +104,7 @@ export default function ResizableWorkspace({ left, center, right, mobilePane, on
     const otherWidth = side === 'left'
       ? (layout.rightCollapsed ? RAIL_WIDTH : layout.rightWidth)
       : (layout.leftCollapsed ? RAIL_WIDTH : layout.leftWidth)
-    const hardMax = side === 'left' ? LEFT_MAX : RIGHT_MAX
+    const hardMax = side === 'left' && leftUnbounded ? containerWidth : side === 'left' ? LEFT_MAX : RIGHT_MAX
     const minimum = side === 'left' ? LEFT_MIN : RIGHT_MIN
     return Math.max(minimum, Math.min(hardMax, containerWidth - otherWidth - MIN_CENTER_WIDTH - 12))
   }
@@ -124,21 +153,23 @@ export default function ResizableWorkspace({ left, center, right, mobilePane, on
     if (event.key === decreaseKey) { event.preventDefault(); resizeTo(side, currentWidth - step) }
     if (event.key === increaseKey) { event.preventDefault(); resizeTo(side, currentWidth + step) }
     if (event.key === 'Home') { event.preventDefault(); side === 'left' ? collapseLeft() : collapseRight() }
-    if (event.key === 'End') { event.preventDefault(); resizeTo(side, side === 'left' ? LEFT_MAX : RIGHT_MAX) }
+    if (event.key === 'End') { event.preventDefault(); resizeTo(side, effectiveMax(side)) }
   }
 
   const leftColumn = layout.leftCollapsed ? RAIL_WIDTH : layout.leftWidth
   const rightColumn = layout.rightCollapsed ? RAIL_WIDTH : layout.rightWidth
+  const leftMaximum = effectiveMax('left')
+  const rightMaximum = effectiveMax('right')
   const leftPanel = cloneElement(left, { onCollapse: collapseLeft })
   const rightPanel = cloneElement(right, { onCollapse: collapseRight })
 
   return <div ref={containerRef} style={{ '--left-column': `${leftColumn}px`, '--right-column': `${rightColumn}px` }} className={`workspace-layout relative flex min-h-0 flex-1 overflow-hidden ${resizing ? 'is-resizing' : ''}`}>
     <div className={`workspace-mobile-drawer workspace-mobile-drawer-left absolute inset-0 z-50 flex min-w-0 flex-col bg-white lg:static lg:z-auto lg:flex ${mobilePane === 'documents' ? 'is-open' : ''}`}><MobileDrawerHeader title="Learning materials" onClose={onCloseMobilePane} /><div className={`min-h-0 flex-1 ${layout.leftCollapsed ? 'lg:hidden' : ''}`}>{leftPanel}</div>{layout.leftCollapsed && <LeftRail onRestore={restoreLeft} />}</div>
-    <ResizeHandle side="left" value={layout.leftWidth} min={LEFT_MIN} max={LEFT_MAX} collapsed={layout.leftCollapsed} onPointerDown={(event) => startResize('left', event)} onKeyboardResize={(event) => keyboardResize('left', event)} />
+    <ResizeHandle side="left" value={layout.leftWidth} min={LEFT_MIN} max={leftMaximum} collapsed={layout.leftCollapsed} onPointerDown={(event) => startResize('left', event)} onKeyboardResize={(event) => keyboardResize('left', event)} />
 
     <div className="min-w-0 flex-1">{center}</div>
 
-    <ResizeHandle side="right" value={layout.rightWidth} min={RIGHT_MIN} max={RIGHT_MAX} collapsed={layout.rightCollapsed} onPointerDown={(event) => startResize('right', event)} onKeyboardResize={(event) => keyboardResize('right', event)} />
+    <ResizeHandle side="right" value={layout.rightWidth} min={RIGHT_MIN} max={rightMaximum} collapsed={layout.rightCollapsed} onPointerDown={(event) => startResize('right', event)} onKeyboardResize={(event) => keyboardResize('right', event)} />
     <div className={`workspace-mobile-drawer workspace-mobile-drawer-right absolute inset-0 z-50 flex min-w-0 flex-col bg-white lg:static lg:z-auto lg:flex ${mobilePane === 'tools' ? 'is-open' : ''}`}><MobileDrawerHeader title="Study tools" onClose={onCloseMobilePane} /><div className={`min-h-0 flex-1 ${layout.rightCollapsed ? 'lg:hidden' : ''}`}>{rightPanel}</div>{layout.rightCollapsed && <RightRail onRestore={restoreRight} />}</div>
   </div>
 }
