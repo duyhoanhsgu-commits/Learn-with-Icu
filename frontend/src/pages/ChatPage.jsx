@@ -1,4 +1,4 @@
-import { BookOpen, Sparkles } from 'lucide-react'
+import { BookOpen, BrainCircuit, FileText, Lightbulb, Sparkles } from 'lucide-react'
 import { useRef, useState } from 'react'
 import MessageList from '../components/chat/MessageList'
 import SuggestedPrompts from '../components/chat/SuggestedPrompts'
@@ -6,11 +6,18 @@ import ChatInput from '../components/chat/ChatInput'
 import { generalPrompts } from '../data/mockData'
 import { askGeneralQuestion, toFrontendSources } from '../api/chat'
 
+const benefits = [
+  { label: 'Explain concepts', icon: Lightbulb },
+  { label: 'Practice with quizzes', icon: BrainCircuit },
+  { label: 'Learn from your files', icon: FileText },
+]
+
 export default function ChatPage({ onNavigate }) {
   const [messages, setMessages] = useState([])
   const [draft, setDraft] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const sessionIdRef = useRef(crypto.randomUUID())
+
   const send = async () => {
     const content = draft.trim()
     if (!content || isTyping) return
@@ -31,6 +38,36 @@ export default function ChatPage({ onNavigate }) {
       setIsTyping(false)
     }
   }
-  const restart = () => { sessionIdRef.current = crypto.randomUUID(); setMessages([]); setIsTyping(false) }
-  return <main className="flex h-screen flex-col overflow-hidden bg-canvas"><header className="flex h-[72px] shrink-0 items-center justify-between border-b border-slate-200 bg-white/70 px-5 backdrop-blur sm:px-8"><div className="flex items-center gap-3"><div className="grid h-9 w-9 place-items-center rounded-lg bg-navy text-[10px] font-bold text-white">IC</div><div><h1 className="font-['Manrope'] text-sm font-bold">ICU Tutor</h1><p className="mt-0.5 text-[10px] text-slate-500">Your AI learning companion</p></div></div><button onClick={() => onNavigate('/learn')} className="flex items-center gap-2 rounded-xl bg-navy px-3.5 py-2.5 text-xs font-semibold text-white transition hover:bg-teal sm:px-4"><BookOpen size={15} /><span className="hidden sm:inline">Learn with your files</span><span className="sm:hidden">Your files</span></button></header><div className="min-h-0 flex-1 overflow-y-auto">{messages.length ? <MessageList messages={messages} isTyping={isTyping} /> : <div className="flex h-full min-h-[300px] flex-col items-center justify-center px-6 text-center"><div className="mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-navy text-sm font-bold text-white shadow-lg shadow-slate-300">IC</div><p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-teal"><Sparkles size={14} /> ICU Tutor</p><h2 className="font-['Manrope'] text-2xl font-bold tracking-tight text-ink sm:text-3xl">What would you like to learn today?</h2><p className="mt-3 max-w-md text-sm leading-6 text-slate-500">Ask a question, explore a new topic, or test what you already know.</p></div>}</div><div className="shrink-0 border-t border-slate-200/70 bg-canvas px-0 pb-4 pt-3 sm:px-6 sm:pb-5"><SuggestedPrompts prompts={generalPrompts} onSelect={setDraft} /><ChatInput value={draft} onChange={setDraft} onSubmit={send} disabled={isTyping} placeholder="Ask ICU anything..." />{messages.length > 0 && <button onClick={restart} className="mx-auto mt-1 block text-[10px] text-slate-400 hover:text-teal">Start over</button>}</div></main>
+
+  const restart = () => {
+    sessionIdRef.current = crypto.randomUUID()
+    setMessages([])
+    setIsTyping(false)
+  }
+
+  return <main className="flex h-[100dvh] flex-col overflow-hidden bg-canvas">
+    <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-line bg-white px-4 sm:px-8">
+      <div className="flex min-w-0 items-center gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-navy text-[10px] font-bold text-white shadow-[0_7px_18px_rgba(11,25,48,.14)]">IC</div><div className="min-w-0"><h1 className="truncate font-['Manrope'] text-sm font-bold text-ink">ICU Tutor</h1><p className="mt-0.5 truncate text-[10px] text-muted">Your AI learning companion</p></div></div>
+      <button onClick={() => onNavigate('/learn')} className="flex shrink-0 items-center gap-2 rounded-xl bg-navy px-3.5 py-2.5 text-xs font-semibold text-white shadow-[0_6px_16px_rgba(11,25,48,.13)] transition hover:-translate-y-0.5 hover:bg-teal hover:shadow-[0_8px_20px_rgba(18,184,170,.2)] sm:px-4"><BookOpen size={15} /><span className="hidden sm:inline">Learn with your files</span><span className="sm:hidden">Your files</span></button>
+    </header>
+
+    <div className="min-h-0 flex-1 overflow-y-auto">
+      {messages.length ? <MessageList messages={messages} isTyping={isTyping} /> : <section className="relative flex h-full min-h-[390px] flex-col items-center justify-center overflow-hidden px-5 pb-4 pt-6 text-center sm:px-8">
+        <div aria-hidden="true" className="general-hero-glow absolute left-1/2 top-[46%] h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full" />
+        <div className="general-hero-content relative z-10 flex flex-col items-center">
+          <div className="grid h-20 w-20 place-items-center rounded-[20px] bg-navy text-base font-bold text-white shadow-[0_18px_42px_rgba(11,25,48,.2)]">IC</div>
+          <p className="mt-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.22em] text-teal"><Sparkles size={13} />ICU Tutor</p>
+          <h2 className="mt-3 max-w-[700px] font-['Manrope'] text-[32px] font-bold leading-[1.12] tracking-[-.035em] text-navy sm:text-[42px] lg:text-[48px]">What would you like to learn today?</h2>
+          <p className="mt-4 max-w-xl text-[15px] leading-7 text-muted sm:text-[17px]">Ask a question, explore a new topic, or test what you already know.</p>
+          <div className="mt-7 hidden items-center justify-center gap-7 sm:flex">{benefits.map(({ label, icon: Icon }) => <div key={label} className="flex items-center gap-2 text-xs font-medium text-muted"><span className="grid h-7 w-7 place-items-center rounded-lg bg-teal/[.08] text-teal"><Icon size={14} /></span>{label}</div>)}</div>
+        </div>
+      </section>}
+    </div>
+
+    <div className={`general-chat-bottom shrink-0 bg-canvas px-0 pt-3 sm:px-4 ${messages.length ? 'border-t border-line' : ''}`}>
+      <SuggestedPrompts prompts={generalPrompts} onSelect={setDraft} variant="landing" />
+      <ChatInput value={draft} onChange={setDraft} onSubmit={send} disabled={isTyping} placeholder="Ask ICU anything…" variant="general" />
+      {messages.length > 0 && <button onClick={restart} className="mx-auto mt-1 block rounded-md px-2 py-1 text-[10px] text-muted transition hover:text-teal">Start over</button>}
+    </div>
+  </main>
 }
