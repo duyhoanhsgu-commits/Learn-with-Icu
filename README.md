@@ -52,6 +52,15 @@ High-performance modular Retrieval-Augmented Generation (RAG) backend constructe
 
 ## Quick Start
 
+Run the backend, frontend, PostgreSQL, and Qdrant together:
+
+```bash
+./dev.sh
+```
+
+Press `Ctrl+C` to stop the backend and frontend. To use database services that are
+already running outside Docker, run `SKIP_DOCKER=1 ./dev.sh`.
+
 ### 1. Start Database Services
 
 ```bash

@@ -49,6 +49,7 @@ class LearningSpace(Base):
     )
 
     documents = relationship("Document", back_populates="space", cascade="all, delete-orphan")
+    learning_tools = relationship("LearningTool", back_populates="space", cascade="all, delete-orphan")
 
 
 class Document(Base):
@@ -98,6 +99,24 @@ class ChatMessage(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
+
+
+class LearningTool(Base):
+    __tablename__ = "learning_tools"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    space_id: Mapped[str] = mapped_column(
+        String, ForeignKey("learning_spaces.id"), index=True, nullable=False
+    )
+    tool_type: Mapped[str] = mapped_column("type", String, index=True, nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    content: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    space = relationship("LearningSpace", back_populates="learning_tools")
 
 
 async def init_db() -> None:

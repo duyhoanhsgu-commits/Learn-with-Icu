@@ -99,3 +99,5 @@ class QuizResponse(BaseModel):
     prompt: str
     question_count: int
     questions: List[QuizQuestion]
+    space_id: Optional[str] = None
+    created_at: Optional[datetime] = None
