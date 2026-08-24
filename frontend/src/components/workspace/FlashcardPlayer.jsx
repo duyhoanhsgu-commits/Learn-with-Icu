@@ -24,26 +24,32 @@ export default function FlashcardPlayer({ flashcards, onExit }) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [current, flashcards.card_count])
 
-  return <section className="flex h-full flex-col bg-[#f7f8f6]">
-    <header className="shrink-0 border-b border-slate-200 bg-white px-4 py-4">
-      <button onClick={onExit} className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-teal"><ArrowLeft size={14} />All flashcards</button>
-      <div className="flex items-center gap-3"><div className="grid h-9 w-9 place-items-center rounded-xl bg-teal/10 text-teal"><LibraryBig size={17} /></div><div className="min-w-0"><p className="text-[10px] font-bold tracking-[.16em] text-teal">FLASHCARDS</p><h2 className="mt-0.5 truncate font-['Manrope'] text-sm font-bold">{flashcards.title}</h2></div></div>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100"><div style={{ width: `${((current + 1) / flashcards.card_count) * 100}%` }} className="h-full rounded-full bg-teal transition-all" /></div>
-      <p className="mt-2 text-[10px] text-slate-400">Card {current + 1} of {flashcards.card_count}</p>
+  return <section className="tool-page fixed inset-0 z-[100] flex h-[100dvh] flex-col bg-canvas">
+    <header className="shrink-0 border-b border-line bg-white/95 backdrop-blur">
+      <div className="mx-auto max-w-[960px] px-4 py-3 sm:px-6 sm:py-4">
+        <button onClick={onExit} className="flex items-center gap-1.5 rounded-lg py-1 text-[11px] font-semibold text-muted transition hover:text-teal"><ArrowLeft size={14} />All flashcards</button>
+        <div className="mt-2 flex items-center gap-3"><div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-teal/10 text-teal"><LibraryBig size={17} /></div><div className="min-w-0 flex-1"><p className="text-[9px] font-bold uppercase tracking-[.2em] text-teal">Flashcards</p><h1 className="mt-1 truncate font-['Manrope'] text-base font-bold text-ink sm:text-lg">{flashcards.title}</h1><p className="mt-1.5 text-[10px] text-muted sm:text-[11px]">Card {current + 1} of {flashcards.card_count}</p></div></div>
+        <div className="mt-3 h-1 overflow-hidden rounded-full bg-slate-100"><div style={{ width: `${((current + 1) / flashcards.card_count) * 100}%` }} className="h-full rounded-full bg-teal transition-[width] duration-300" /></div>
+      </div>
     </header>
 
-    <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto p-4">
-      <button onClick={() => setFlipped((value) => !value)} className={`flex min-h-64 w-full flex-col items-center justify-center rounded-3xl border p-7 text-center shadow-sm transition ${flipped ? 'border-teal/30 bg-teal/[.06]' : 'border-slate-200 bg-white hover:border-teal/40'}`}>
-        <p className="text-[10px] font-bold uppercase tracking-[.16em] text-teal">{flipped ? 'Answer' : 'Question'}</p>
-        <p className={`mt-5 leading-7 text-slate-800 ${flipped ? 'text-sm' : "font-['Manrope'] text-base font-bold"}`}>{flipped ? card.back : card.front}</p>
-        <p className="mt-7 flex items-center gap-1.5 text-[10px] text-slate-400"><RotateCcw size={11} />Click card or press Space to flip</p>
-      </button>
-    </div>
+    <main className="flex min-h-0 flex-1 items-center overflow-y-auto">
+      <div className="mx-auto w-full max-w-[760px] px-5 py-6 sm:px-6 sm:py-10">
+        <button onClick={() => setFlipped((value) => !value)} aria-pressed={flipped} aria-label={flipped ? 'Show flashcard question' : 'Reveal flashcard answer'} className="flashcard-scene block h-[min(440px,52vh)] min-h-[320px] w-full rounded-[22px] text-center">
+          <span className={`flashcard-inner block h-full w-full ${flipped ? 'is-flipped' : ''}`}>
+            <span aria-hidden={flipped} className="flashcard-face absolute inset-0 flex flex-col items-center justify-center rounded-[20px] border border-brandblue/20 bg-white p-7 sm:p-12"><span className="text-[9px] font-bold uppercase tracking-[.2em] text-teal">Question</span><span className="mt-6 max-w-xl font-['Manrope'] text-xl font-bold leading-8 text-ink sm:text-2xl sm:leading-9">{card.front}</span><span className="mt-9 flex items-center gap-1.5 text-[10px] text-muted"><RotateCcw size={12} />Click card or press Space to flip</span></span>
+            <span aria-hidden={!flipped} className="flashcard-face flashcard-back absolute inset-0 flex flex-col items-center justify-center rounded-[20px] border border-teal/25 bg-white p-7 sm:p-12"><span className="text-[9px] font-bold uppercase tracking-[.2em] text-teal">Answer</span><span className="mt-6 max-w-xl text-base font-medium leading-7 text-ink sm:text-xl sm:leading-8">{card.back}</span><span className="mt-9 flex items-center gap-1.5 text-[10px] text-muted"><RotateCcw size={12} />Click card or press Space to flip</span></span>
+          </span>
+        </button>
+      </div>
+    </main>
 
-    <footer className="flex shrink-0 items-center gap-2 border-t border-slate-200 bg-white p-4">
-      <button disabled={current === 0} onClick={() => move(current - 1)} className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 text-slate-500 disabled:opacity-30"><ChevronLeft size={17} /></button>
-      <button onClick={() => setFlipped((value) => !value)} className="h-10 flex-1 rounded-xl bg-navy px-4 text-xs font-semibold text-white hover:bg-teal">{flipped ? 'Show question' : 'Reveal answer'}</button>
-      <button disabled={current === flashcards.card_count - 1} onClick={() => move(current + 1)} className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 text-slate-500 disabled:opacity-30"><ChevronRight size={17} /></button>
+    <footer className="shrink-0 border-t border-line bg-white/95 backdrop-blur">
+      <div className="mx-auto flex max-w-[760px] items-center gap-3 px-4 py-3 sm:px-6 sm:py-4">
+        <button disabled={current === 0} onClick={() => move(current - 1)} aria-label="Previous card" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-line text-muted transition hover:border-teal/30 hover:bg-teal/[.04] hover:text-teal disabled:cursor-not-allowed disabled:opacity-30"><ChevronLeft size={18} /></button>
+        <button onClick={() => setFlipped((value) => !value)} className="h-11 flex-1 rounded-xl bg-navy px-5 text-xs font-bold text-white shadow-[0_7px_18px_rgba(11,25,48,.16)] transition hover:bg-teal">{flipped ? 'Show question' : 'Reveal answer'}</button>
+        <button disabled={current === flashcards.card_count - 1} onClick={() => move(current + 1)} aria-label="Next card" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-line text-muted transition hover:border-teal/30 hover:bg-teal/[.04] hover:text-teal disabled:cursor-not-allowed disabled:opacity-30"><ChevronRight size={18} /></button>
+      </div>
     </footer>
   </section>
 }

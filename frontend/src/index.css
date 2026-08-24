@@ -70,3 +70,32 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-
 .assistant-markdown th { background: #f1f5f9; color: #0f172a; font-weight: 600; }
 .assistant-markdown .katex-display { margin: 1em 0; overflow-x: auto; overflow-y: hidden; padding: .5rem 0; }
 .message-sources > div > a, .message-sources > div > div { margin-top: 0; }
+
+@keyframes tool-page-enter {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tool-page { animation: tool-page-enter .2s ease-out both; }
+.flashcard-scene { perspective: 1400px; }
+.flashcard-inner {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform .45s cubic-bezier(.22, .75, .25, 1);
+}
+.flashcard-inner.is-flipped { transform: rotateY(180deg); }
+.flashcard-face {
+  backface-visibility: hidden;
+  box-shadow: 0 18px 50px rgba(18, 33, 59, .09), 0 0 0 1px rgba(52, 133, 245, .03);
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+.flashcard-scene:hover .flashcard-face {
+  border-color: rgba(18, 184, 170, .4);
+  box-shadow: 0 22px 55px rgba(18, 33, 59, .12), 0 0 28px rgba(52, 133, 245, .07);
+}
+.flashcard-back { transform: rotateY(180deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-page { animation: none; }
+  .flashcard-inner { transition: none; }
+}
