@@ -9,6 +9,16 @@ _RESPONSE_FORMAT_GUIDANCE = (
     "display equations as $$...$$ using valid LaTeX. Do not wrap LaTeX in code fences."
 )
 
+_CITATION_GUIDANCE = (
+    "Cite document evidence inline using the numbered context labels. Put citations "
+    "immediately at the end of the sentence or list item they support, using Markdown "
+    "links such as [1](#source-1). Use exactly one citation when one context is enough. "
+    "Use multiple citations only when that sentence combines claims supported by different "
+    "contexts, for example [1](#source-1)[2](#source-2). Never cite a context that does "
+    "not support the claim, never invent a source number, and do not add a separate "
+    "Sources or References section."
+)
+
 
 class RAGGenerator:
     """Generates answers based on retrieved context using OpenAI / LLM."""
@@ -43,6 +53,12 @@ If you don't know the answer or if the context does not contain enough informati
 """
         return prompt
 
+    @staticmethod
+    def _build_rag_system_prompt(system_prompt: str = "") -> str:
+        """Build shared instructions for normal and streaming RAG responses."""
+        role_prompt = system_prompt or "You are a helpful and precise RAG assistant."
+        return f"{role_prompt}\n\n{_RESPONSE_FORMAT_GUIDANCE}\n\n{_CITATION_GUIDANCE}"
+
     async def generate_response(
         self,
         query: str,
@@ -52,8 +68,7 @@ If you don't know the answer or if the context does not contain enough informati
     ) -> str:
         """Generate complete answer string for the query."""
         user_prompt = self._build_prompt(query, contexts)
-        sys_prompt = system_prompt or "You are a helpful and precise RAG assistant."
-        sys_prompt = f"{sys_prompt}\n\n{_RESPONSE_FORMAT_GUIDANCE}"
+        sys_prompt = self._build_rag_system_prompt(system_prompt)
 
         user_content: Any = user_prompt
         if image_data_url:
@@ -112,7 +127,7 @@ If you don't know the answer or if the context does not contain enough informati
     ) -> AsyncGenerator[str, None]:
         """Stream generated response token by token."""
         user_prompt = self._build_prompt(query, contexts)
-        sys_prompt = system_prompt or "You are a helpful and precise RAG assistant."
+        sys_prompt = self._build_rag_system_prompt(system_prompt)
 
         if self._client:
             try:

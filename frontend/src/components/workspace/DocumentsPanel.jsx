@@ -4,7 +4,7 @@ import DocumentViewer from './DocumentViewer'
 import FileItem from '../files/FileItem'
 import FileUploadButton from '../files/FileUploadButton'
 
-export default function DocumentsPanel({ spaces, activeSpace, onSelectSpace, onCreateSpace, onUpload, onDeleteFile, selectedFile, onSelectFile, onAsk, onCollapse }) {
+export default function DocumentsPanel({ spaces, activeSpace, onSelectSpace, onCreateSpace, onUpload, onDeleteFile, selectedFile, onSelectFile, sourceTarget, onAsk, onCollapse }) {
   const [spaceMenuOpen, setSpaceMenuOpen] = useState(false)
   const spaceMenuRef = useRef(null)
 
@@ -27,7 +27,7 @@ export default function DocumentsPanel({ spaces, activeSpace, onSelectSpace, onC
     if (name) onCreateSpace(name)
   }
 
-  if (selectedFile) return <section className="relative h-full min-w-0 overflow-hidden bg-white"><DocumentViewer file={selectedFile} onExit={() => onSelectFile(null)} onAsk={onAsk} onCollapse={onCollapse} /></section>
+  if (selectedFile) return <section className="relative h-full min-w-0 overflow-hidden bg-white"><DocumentViewer file={selectedFile} sourceTarget={sourceTarget} onExit={() => onSelectFile(null)} onAsk={onAsk} onCollapse={onCollapse} /></section>
 
   return <aside id="workspace-spaces-section" tabIndex={-1} className="flex h-full min-w-0 flex-col bg-midnight px-4 py-5 text-white sm:px-5">
     <div className="flex items-center justify-between">

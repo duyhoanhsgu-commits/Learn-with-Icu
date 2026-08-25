@@ -42,6 +42,7 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
   const [draft, setDraft] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [selectedFileId, setSelectedFileId] = useState(null)
+  const [sourceTarget, setSourceTarget] = useState(null)
   const [notice, setNotice] = useState(null)
   const [mobilePane, setMobilePane] = useState(null)
   const timerRef = useRef(null)
@@ -66,6 +67,7 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
     setIsTyping(false)
     setActiveSpaceId(spaceId)
     setSelectedFileId(null)
+    setSourceTarget(null)
     setDraft('')
     const space = learningSpaces.find((item) => item.id === spaceId)
     if (space) setMessagesBySpace((all) => all[spaceId] ? all : { ...all, [spaceId]: [openingMessage(space)] })
@@ -157,6 +159,26 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
     setMessagesBySpace((all) => ({ ...all, [activeSpace.id]: [openingMessage(activeSpace)] }))
   }
 
+  const openSource = (source) => {
+    if (source.url) {
+      window.open(source.url, '_blank', 'noopener,noreferrer')
+      return
+    }
+    const file = activeSpace?.files.find((item) => item.id === source.fileId)
+    if (!file) {
+      setNotice({ type: 'error', message: 'The source document is no longer available in this learning space.' })
+      return
+    }
+    setSelectedFileId(file.id)
+    setSourceTarget({ ...source, requestId: crypto.randomUUID() })
+    setMobilePane('documents')
+  }
+
+  const selectFile = (fileId) => {
+    setSelectedFileId(fileId)
+    setSourceTarget(null)
+  }
+
   const send = async (preparedPrompt = '', imageDataUrl = null) => {
     const content = (preparedPrompt || draft).trim()
     if (!content || !activeSpace || !indexedFiles.length || isTyping) return
@@ -195,17 +217,17 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
         ? 'Your files are being prepared...'
         : `Ask anything in ${activeSpace.name}...`
 
-  const chatPanel = <section className="flex h-full min-w-0 flex-col bg-canvas">
+  const chatPanel = <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-canvas">
     <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-line bg-white px-4 sm:px-6">
       <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-[.2em] text-teal">Learning Chat</p><h2 className="mt-1 truncate font-['Manrope'] text-base font-bold text-ink">{activeSpace?.name || 'Learning Space'}</h2></div>
       <button onClick={restart} disabled={!activeSpace} title="Reset conversation" aria-label="Reset conversation" className="rounded-xl border border-line p-2.5 text-muted transition hover:border-teal/30 hover:bg-teal/[.05] hover:text-teal disabled:opacity-30"><RotateCcw size={15} /></button>
     </header>
     {(notice || documentsState.error) && <div className={`mx-4 mt-3 flex items-center gap-2 rounded-xl border px-3 py-2.5 text-[11px] sm:mx-6 ${notice?.type === 'success' && !documentsState.error ? 'border-teal/20 bg-teal/[.06] text-[#08786e]' : 'border-red-200 bg-red-50 text-red-700'}`}>{notice?.type === 'success' && !documentsState.error ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}<span className="flex-1">{documentsState.error ? `API unavailable: ${documentsState.error}` : notice.message}</span><button onClick={() => setNotice(null)} aria-label="Dismiss notification" className="rounded p-1">×</button></div>}
-    <div className="min-h-0 flex-1 overflow-y-auto">{activeSpace ? (messages.length <= 1 && !isTyping ? <WorkspaceWelcome space={activeSpace} files={readyFiles} /> : <MessageList messages={messages} isTyping={isTyping} />) : <div className="grid h-full place-items-center px-6 text-center"><div><FolderOpen className="mx-auto text-slate-300" /><p className="mt-3 text-sm font-semibold">Create a Learning Space</p></div></div>}</div>
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">{activeSpace ? (messages.length <= 1 && !isTyping ? <WorkspaceWelcome space={activeSpace} files={readyFiles} /> : <MessageList messages={messages} isTyping={isTyping} onSourceClick={openSource} />) : <div className="grid h-full place-items-center px-6 text-center"><div><FolderOpen className="mx-auto text-slate-300" /><p className="mt-3 text-sm font-semibold">Create a Learning Space</p></div></div>}</div>
     <div className="shrink-0 border-t border-line bg-canvas pb-3 pt-3"><SuggestedPrompts prompts={filePrompts} onSelect={(prompt) => !unavailable && setDraft(prompt)} /><ChatInput value={draft} onChange={setDraft} onSubmit={send} disabled={unavailable || isTyping} placeholder={indexedFiles.length ? 'Ask anything about your materials…' : placeholder} /></div>
   </section>
 
-  const documentsPanel = <DocumentsPanel spaces={learningSpaces} activeSpace={activeSpace} onSelectSpace={selectSpace} onCreateSpace={createSpace} onUpload={upload} onDeleteFile={deleteFile} selectedFile={selectedFile} onSelectFile={setSelectedFileId} onAsk={(question, excerpt, imageDataUrl) => send(excerpt ? `${question}\n\nSelected document excerpt:\n${excerpt}` : question, imageDataUrl)} />
+  const documentsPanel = <DocumentsPanel spaces={learningSpaces} activeSpace={activeSpace} onSelectSpace={selectSpace} onCreateSpace={createSpace} onUpload={upload} onDeleteFile={deleteFile} selectedFile={selectedFile} onSelectFile={selectFile} sourceTarget={sourceTarget} onAsk={(question, excerpt, imageDataUrl) => send(excerpt ? `${question}\n\nSelected document excerpt:\n${excerpt}` : question, imageDataUrl)} />
   const toolsPanel = <ToolsPanel disabled={unavailable || isTyping} onUseTool={send} spaceId={activeSpace?.id} />
 
   return <main className="flex h-screen flex-col overflow-hidden bg-canvas">
@@ -213,6 +235,6 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
       <div className="flex min-w-0 items-center gap-3"><BrandLogo className="h-9 w-9 rounded-xl border border-line bg-white p-0.5 shadow-sm" /><span className="truncate font-['Manrope'] text-sm font-bold text-ink">ICU Learning Workspace</span></div>
       <div className="flex items-center gap-1 sm:gap-2"><button onClick={() => setMobilePane('documents')} className="rounded-xl p-2.5 text-muted hover:bg-slate-50 hover:text-ink lg:hidden" aria-label="Open learning materials"><Files size={17} /></button><button onClick={() => setMobilePane('tools')} className="rounded-xl p-2.5 text-muted hover:bg-slate-50 hover:text-ink lg:hidden" aria-label="Open study tools"><PanelRight size={17} /></button><button title="Help" aria-label="Help" className="hidden rounded-xl p-2.5 text-muted hover:bg-slate-50 hover:text-ink sm:grid"><HelpCircle size={17} /></button><button onClick={() => onNavigate('/chat')} className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2.5 text-[11px] font-semibold text-ink transition hover:border-brandblue/30 hover:bg-brandblue/[.04]"><span className="hidden sm:inline">General Chat</span><span className="sm:hidden">Chat</span><ChevronDown size={13} className="text-muted" /></button></div>
     </nav>
-    <ResizableWorkspace left={documentsPanel} center={chatPanel} right={toolsPanel} mobilePane={mobilePane} onCloseMobilePane={() => setMobilePane(null)} leftUnbounded={selectedFile?.type?.toLowerCase() === 'pdf'} />
+    <ResizableWorkspace left={documentsPanel} center={chatPanel} right={toolsPanel} mobilePane={mobilePane} onCloseMobilePane={() => setMobilePane(null)} leftUnbounded={selectedFile?.type?.toLowerCase() === 'pdf'} leftRevealKey={sourceTarget?.requestId} />
   </main>
 }

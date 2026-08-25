@@ -50,7 +50,10 @@ export async function askGeneralQuestion({ question, sessionId }) {
 
 export function toFrontendSources(sources = []) {
   return sources.map((source) => ({
-    fileId: source.document_id || source.chunk_id || source.source,
+    fileId: source.document_id || null,
+    chunkId: source.chunk_id || null,
+    chunkIndex: source.chunk_index ?? null,
+    text: source.text || '',
     fileName: source.source || 'Document',
     page: source.page ?? source.metadata?.page ?? null,
     score: source.score,

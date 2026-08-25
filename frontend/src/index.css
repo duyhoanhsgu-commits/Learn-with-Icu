@@ -67,6 +67,16 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-
 .pdf-reading-frame .react-pdf__Page { background: white; box-shadow: 0 2px 12px rgba(18, 33, 59, .09); }
 .pdf-reading-frame .react-pdf__Page canvas { display: block; max-width: none; }
 .pdf-scroll-area { scrollbar-gutter: stable; -webkit-overflow-scrolling: touch; }
+.pdf-citation-page .pdf-reading-frame {
+  border-color: rgba(18, 184, 170, .75);
+  box-shadow: 0 0 0 4px rgba(18, 184, 170, .12), 0 18px 45px rgba(18, 33, 59, .16);
+}
+.textLayer .pdf-chunk-highlight {
+  border-radius: 2px;
+  background: rgba(45, 212, 191, .34);
+  box-shadow: 0 0 0 2px rgba(18, 184, 170, .16);
+  color: transparent;
+}
 .assistant-markdown { overflow-wrap: anywhere; font-size: 14px; line-height: 1.75; }
 .assistant-markdown > :first-child { margin-top: 0; }
 .assistant-markdown > :last-child { margin-bottom: 0; }

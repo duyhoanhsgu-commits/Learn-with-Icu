@@ -8,6 +8,84 @@ import { documentContentUrl, documentTextUrl } from '../../api/documents'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString()
 
+function normalizePdfText(value = '') {
+  return value
+    .normalize('NFKC')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .toLocaleLowerCase()
+}
+
+function citationPhrases(text = '') {
+  const words = normalizePdfText(text).split(' ').filter(Boolean)
+  if (!words.length) return []
+  const candidates = new Set()
+  for (const requestedSize of [40, 28, 18, 10]) {
+    const size = Math.min(requestedSize, words.length)
+    if (size < 4) continue
+    const lastStart = Math.max(0, words.length - size)
+    const starts = new Set([0, lastStart, Math.floor(lastStart / 3), Math.floor((lastStart * 2) / 3)])
+    for (const start of starts) candidates.add(words.slice(start, start + size).join(' '))
+  }
+  return [...candidates].sort((a, b) => b.length - a.length)
+}
+
+async function findCitationPage(pdfDocument, sourceTarget, isCancelled = () => false) {
+  const phrases = citationPhrases(sourceTarget?.text)
+  const requestedPage = Number(sourceTarget?.page)
+  const pageNumbers = Number.isInteger(requestedPage) && requestedPage >= 1 && requestedPage <= pdfDocument.numPages
+    ? [requestedPage]
+    : Array.from({ length: pdfDocument.numPages }, (_, index) => index + 1)
+
+  let fallback = null
+  const significantWords = new Set(normalizePdfText(sourceTarget?.text).split(' ').filter((word) => word.length >= 5))
+  for (const pageNumber of pageNumbers) {
+    if (isCancelled()) return null
+    const page = await pdfDocument.getPage(pageNumber)
+    const textContent = await page.getTextContent()
+    const pageText = normalizePdfText(textContent.items.map((item) => item.str || '').join(' '))
+    for (const phrase of phrases) {
+      if (pageText.includes(phrase)) return { pageNumber, phrase }
+    }
+
+    if (significantWords.size) {
+      const pageWords = new Set(pageText.split(' '))
+      let overlap = 0
+      significantWords.forEach((word) => { if (pageWords.has(word)) overlap += 1 })
+      if (!fallback || overlap > fallback.overlap) fallback = { pageNumber, phrase: phrases.at(-1) || '', overlap }
+    }
+  }
+  return fallback?.overlap >= 3 ? fallback : { pageNumber: pageNumbers[0] || 1, phrase: phrases.at(-1) || '' }
+}
+
+function clearPdfHighlights(container) {
+  container?.querySelectorAll('.pdf-chunk-highlight').forEach((element) => element.classList.remove('pdf-chunk-highlight'))
+  container?.querySelectorAll('.pdf-citation-page').forEach((element) => element.classList.remove('pdf-citation-page'))
+}
+
+function highlightPhrase(pageElement, phrase) {
+  const spans = [...pageElement.querySelectorAll('.textLayer span')]
+  if (!spans.length) return false
+  let combined = ''
+  const ranges = []
+  spans.forEach((span) => {
+    const value = normalizePdfText(span.textContent)
+    if (!value) return
+    if (combined) combined += ' '
+    const start = combined.length
+    combined += value
+    ranges.push({ span, start, end: combined.length })
+  })
+
+  const start = combined.indexOf(phrase)
+  if (start < 0) return false
+  const end = start + phrase.length
+  ranges.forEach(({ span, start: spanStart, end: spanEnd }) => {
+    if (spanEnd > start && spanStart < end) span.classList.add('pdf-chunk-highlight')
+  })
+  return true
+}
+
 function ContinuousPdfPage({ pageNumber, pages, pageWidth, scrollRef }) {
   const pageRef = useRef(null)
   const [visible, setVisible] = useState(pageNumber <= 2)
@@ -31,7 +109,7 @@ function ContinuousPdfPage({ pageNumber, pages, pageWidth, scrollRef }) {
 
   const estimatedHeight = Math.round(pageWidth * aspectRatio) + 34
 
-  return <section ref={pageRef} style={{ minHeight: estimatedHeight }} className="relative shrink-0">
+  return <section ref={pageRef} data-pdf-page={pageNumber} style={{ minHeight: estimatedHeight }} className="relative shrink-0">
     <p className="mb-1.5 text-center text-[9px] font-semibold text-muted">Page {pageNumber} of {pages}</p>
     {visible
       ? <div className="pdf-reading-frame mx-auto w-fit overflow-hidden rounded-xl border border-white/80 bg-white p-2 shadow-[0_16px_40px_rgba(35,55,85,.14)]"><Page pageNumber={pageNumber} width={pageWidth} renderTextLayer renderAnnotationLayer onLoadSuccess={(pdfPage) => { const viewport = pdfPage.getViewport({ scale: 1 }); setAspectRatio(viewport.height / viewport.width) }} /></div>
@@ -39,14 +117,56 @@ function ContinuousPdfPage({ pageNumber, pages, pageWidth, scrollRef }) {
   </section>
 }
 
-function PdfViewer({ file, width, scrollRef }) {
+function PdfViewer({ file, width, scrollRef, sourceTarget }) {
   const [pages, setPages] = useState(0)
+  const [pdfDocument, setPdfDocument] = useState(null)
+  const [sourceStatus, setSourceStatus] = useState('')
   const availableWidth = width < 640 ? width - 56 : width < 1024 ? width - 112 : width - 160
   const pageWidth = Math.min(920, Math.max(180, availableWidth))
 
+  useEffect(() => {
+    const scrollElement = scrollRef.current
+    if (!pdfDocument || !sourceTarget?.text || sourceTarget.fileId !== file.id) {
+      clearPdfHighlights(scrollElement)
+      setSourceStatus('')
+      return undefined
+    }
+    let cancelled = false
+    clearPdfHighlights(scrollElement)
+    setSourceStatus('Finding cited passage…')
+
+    const reveal = async () => {
+      try {
+        const match = await findCitationPage(pdfDocument, sourceTarget, () => cancelled)
+        if (cancelled || !match) return
+        const pageElement = scrollElement?.querySelector(`[data-pdf-page="${match.pageNumber}"]`)
+        pageElement?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+        pageElement?.classList.add('pdf-citation-page')
+
+        let highlighted = false
+        for (let attempt = 0; attempt < 40 && !cancelled; attempt += 1) {
+          const renderedPage = scrollElement?.querySelector(`[data-pdf-page="${match.pageNumber}"]`)
+          if (renderedPage && match.phrase) highlighted = highlightPhrase(renderedPage, match.phrase)
+          if (highlighted) break
+          await new Promise((resolve) => window.setTimeout(resolve, 100))
+        }
+        if (!cancelled) setSourceStatus(highlighted ? `Source highlighted · Page ${match.pageNumber}` : `Source page ${match.pageNumber}`)
+      } catch (error) {
+        if (!cancelled) setSourceStatus('Could not locate this passage')
+      }
+    }
+    reveal()
+
+    return () => {
+      cancelled = true
+      clearPdfHighlights(scrollElement)
+    }
+  }, [file.id, pdfDocument, scrollRef, sourceTarget])
+
   return <div className="absolute inset-0 overflow-hidden bg-[#eef3fa]">
+    {sourceStatus && <div aria-live="polite" className="pointer-events-none absolute right-3 top-3 z-30 rounded-full border border-teal/20 bg-white/95 px-3 py-1.5 text-[9px] font-semibold text-[#087f75] shadow-lg backdrop-blur">{sourceStatus}</div>}
     <div ref={scrollRef} role="region" aria-label="Scrollable PDF document" tabIndex={0} className="pdf-scroll-area absolute inset-0 min-h-0 min-w-0 overflow-auto overscroll-contain px-3 pb-8 pt-4 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brandblue/40">
-      <Document className="mx-auto flex w-fit min-w-fit flex-col gap-4" file={documentContentUrl(file.id)} loading={<div className="grid h-64 w-[min(90vw,720px)] place-items-center"><div className="text-center"><LoaderCircle className="mx-auto animate-spin text-teal" /><p className="mt-3 text-xs text-muted">Preparing your document…</p></div></div>} onLoadSuccess={({ numPages }) => { setPages(numPages); scrollRef.current?.scrollTo({ top: 0, left: 0 }) }}>{Array.from({ length: pages }, (_, index) => <ContinuousPdfPage key={index + 1} pageNumber={index + 1} pages={pages} pageWidth={pageWidth} scrollRef={scrollRef} />)}</Document>
+      <Document className="mx-auto flex w-fit min-w-fit flex-col gap-4" file={documentContentUrl(file.id)} loading={<div className="grid h-64 w-[min(90vw,720px)] place-items-center"><div className="text-center"><LoaderCircle className="mx-auto animate-spin text-teal" /><p className="mt-3 text-xs text-muted">Preparing your document…</p></div></div>} onLoadSuccess={(loadedPdf) => { setPages(loadedPdf.numPages); setPdfDocument(loadedPdf); scrollRef.current?.scrollTo({ top: 0, left: 0 }) }}>{Array.from({ length: pages }, (_, index) => <ContinuousPdfPage key={index + 1} pageNumber={index + 1} pages={pages} pageWidth={pageWidth} scrollRef={scrollRef} />)}</Document>
     </div>
   </div>
 }
@@ -62,7 +182,7 @@ function AskPopover({ position, excerpt, imageDataUrl, onAsk, onClose }) {
   return <form onSubmit={submit} style={{ left: position.x, top: position.y }} className="absolute z-50 w-[min(300px,calc(100%-24px))] -translate-x-1/2 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl"><div className="mb-2 flex items-center justify-between"><span className="text-[10px] font-bold tracking-[.15em] text-teal">ASK AI</span><button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={14} /></button></div>{imageDataUrl && <img src={imageDataUrl} alt="Captured document area" className="mb-2 max-h-28 w-full rounded-lg border border-slate-200 bg-slate-50 object-contain" />}{excerpt && <p className="mb-2 line-clamp-2 rounded-lg bg-slate-50 px-2 py-1.5 text-[10px] leading-4 text-slate-500">“{excerpt}”</p>}<div className="flex gap-2"><input autoFocus value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask about this..." className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-teal" /><button aria-label="Ask AI" disabled={!question.trim()} className="grid w-9 place-items-center rounded-lg bg-navy text-white disabled:bg-slate-200"><Send size={14} /></button></div></form>
 }
 
-export default function DocumentViewer({ file, onExit, onAsk, onCollapse }) {
+export default function DocumentViewer({ file, sourceTarget, onExit, onAsk, onCollapse }) {
   const [text, setText] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -196,7 +316,7 @@ export default function DocumentViewer({ file, onExit, onAsk, onCollapse }) {
 
   if (!file) return <div className="grid h-full place-items-center bg-slate-50 px-6 text-center"><div><FileText className="mx-auto text-slate-300" size={34} /><p className="mt-3 text-sm font-semibold text-slate-600">Select a document</p><p className="mt-1 text-xs text-slate-400">PDF, Word and Markdown previews appear here.</p></div></div>
   let content
-  if (type === 'pdf') content = <PdfViewer file={file} width={width} scrollRef={pdfScrollRef} />
+  if (type === 'pdf') content = <PdfViewer key={file.id} file={file} width={width} scrollRef={pdfScrollRef} sourceTarget={sourceTarget} />
   else if (loading) content = <div className="grid h-full place-items-center"><LoaderCircle className="animate-spin text-teal" /></div>
   else if (error) content = <div className="grid h-full place-items-center bg-[#eef3fa] p-5 text-sm text-red-600">{error}</div>
   else if (type === 'md' || type === 'markdown') content = <div className="h-full overflow-y-auto bg-[#eef3fa] p-3"><article className="document-markdown mx-auto min-h-full rounded-xl border border-line bg-white p-5 shadow-[0_16px_40px_rgba(35,55,85,.12)]"><ReactMarkdown>{text}</ReactMarkdown></article></div>
