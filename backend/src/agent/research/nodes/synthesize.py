@@ -3,6 +3,7 @@ from typing import Any
 
 from openai import AsyncOpenAI
 
+from src.agent.context import context_builder
 from src.agent.research.prompts import SYNTHESIZE_SYSTEM_PROMPT, SYNTHESIZE_USER_PROMPT
 from src.agent.research.state import ResearchState
 from src.core.config import settings
@@ -130,14 +131,17 @@ The evidence above should be compared only on the dimensions explicitly supporte
         try:
             response = await self._client.chat.completions.create(
                 model=self.model_name,
-                messages=[
-                    {"role": "system", "content": SYNTHESIZE_SYSTEM_PROMPT},
-                    {"role": "user", "content": SYNTHESIZE_USER_PROMPT.format(
+                messages=context_builder.build_messages(
+                    base_system_prompt=SYNTHESIZE_SYSTEM_PROMPT,
+                    fixed_context=state.fixed_context,
+                    memory_context=state.memory_context,
+                    retrieved_context=evidence_text,
+                    recent_messages=state.history,
+                    query=SYNTHESIZE_USER_PROMPT.format(
                         query=state.query,
-                        evidence=evidence_text,
                         limitations="\n".join(f"- {item}" for item in state.missing_topics) or "None identified",
-                    )},
-                ],
+                    ),
+                ),
                 temperature=0.2,
             )
             report = response.choices[0].message.content or ""

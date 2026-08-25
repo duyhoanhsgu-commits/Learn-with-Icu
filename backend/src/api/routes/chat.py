@@ -7,8 +7,15 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.storage.postgres import get_db_session, ChatConversation, ChatMessage, LearningSpace
+from src.storage.postgres import get_db_session, ChatConversation, ChatMessage
 from src.agent import agent_graph
+from src.agent.context import (
+    PersonalContext,
+    RECENT_MESSAGE_LIMIT,
+    SpaceNotFoundError,
+    personal_context_service,
+    space_context_memory,
+)
 from src.agent.research import ResearchState, research_graph
 from src.agent.router import route_agent
 from src.agent.state import AgentState
@@ -29,6 +36,59 @@ router = APIRouter(prefix="/chat", tags=["Chat & Q&A"])
 def conversation_title(question: str) -> str:
     compact = " ".join(question.split())
     return compact if len(compact) <= 72 else f"{compact[:69].rstrip()}..."
+
+
+async def load_fixed_context(
+    db: AsyncSession,
+    space_id: str | None,
+) -> str:
+    if not space_id:
+        return ""
+    try:
+        return await space_context_memory.get(db, space_id)
+    except SpaceNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Learning space not found.") from exc
+
+
+async def load_personal_context(
+    db: AsyncSession,
+    space_id: str | None,
+    query: str,
+) -> PersonalContext:
+    if not space_id:
+        return PersonalContext()
+    try:
+        return await personal_context_service.load(db, space_id, query)
+    except SpaceNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Learning space not found.") from exc
+
+
+async def load_recent_history(
+    db: AsyncSession,
+    session_id: str,
+    chat_type: str,
+    space_id: str | None,
+) -> list[dict[str, str]]:
+    conversation = await db.get(ChatConversation, session_id)
+    if conversation is None:
+        return []
+    if conversation.chat_type != chat_type or conversation.space_id != space_id:
+        raise HTTPException(
+            status_code=409,
+            detail="Conversation does not belong to this chat type or learning space.",
+        )
+    result = await db.execute(
+        select(ChatMessage)
+        .where(ChatMessage.session_id == session_id)
+        .order_by(ChatMessage.created_at.desc())
+        .limit(RECENT_MESSAGE_LIMIT)
+    )
+    messages = list(reversed(result.scalars().all()))
+    return [
+        {"role": message.role, "content": message.content}
+        for message in messages
+        if message.role in {"user", "assistant"}
+    ]
 
 
 async def persist_exchange(
@@ -53,6 +113,11 @@ async def persist_exchange(
         )
         db.add(conversation)
     else:
+        if conversation.chat_type != chat_type or conversation.space_id != space_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Conversation does not belong to this chat type or learning space.",
+            )
         if conversation.title == "New conversation":
             conversation.title = conversation_title(question)
         conversation.updated_at = now
@@ -152,19 +217,34 @@ async def general_chat(
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
-    history_result = await db.execute(
-        select(ChatMessage)
-        .where(ChatMessage.session_id == request.session_id)
-        .order_by(ChatMessage.created_at.desc())
-        .limit(20)
+    personal_context = await load_personal_context(
+        db,
+        request.space_id,
+        request.question,
     )
-    previous_messages = list(reversed(history_result.scalars().all()))
+    history = await load_recent_history(
+        db,
+        request.session_id,
+        chat_type="general",
+        space_id=request.space_id,
+    )
     state = await agent_graph.run(AgentState(
         query=request.question,
         session_id=request.session_id,
-        history=[{"role": message.role, "content": message.content} for message in previous_messages],
+        space_id=request.space_id,
+        requested_route="general_chat",
+        history=history,
+        fixed_context=personal_context.fixed_context,
+        memory_context=personal_context.memory_context,
     ))
-    await persist_exchange(db, request.session_id, request.question, state.answer, chat_type="general")
+    await persist_exchange(
+        db,
+        request.session_id,
+        request.question,
+        state.answer,
+        chat_type="general",
+        space_id=request.space_id,
+    )
     return ChatQueryResponse(
         session_id=request.session_id,
         question=request.question,
@@ -181,8 +261,17 @@ async def chat_query(
     """Q&A query endpoint over ingested documents with RAG pipeline."""
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
-    if not await db.get(LearningSpace, request.space_id):
-        raise HTTPException(status_code=404, detail="Learning space not found.")
+    personal_context = await load_personal_context(
+        db,
+        request.space_id,
+        request.question,
+    )
+    history = await load_recent_history(
+        db,
+        request.session_id,
+        chat_type="learning",
+        space_id=request.space_id,
+    )
 
     # The graph selects regular RAG or the summarization specialist.
     state = await agent_graph.run(AgentState(
@@ -192,6 +281,9 @@ async def chat_query(
         top_k=request.top_k,
         score_threshold=request.score_threshold,
         image_data_url=request.image_data_url,
+        history=history,
+        fixed_context=personal_context.fixed_context,
+        memory_context=personal_context.memory_context,
     ))
 
     # 2. Persist chat message history to Database
@@ -221,13 +313,25 @@ async def chat_stream(
     """Streaming Q&A endpoint over ingested documents."""
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
-    if not await db.get(LearningSpace, request.space_id):
-        raise HTTPException(status_code=404, detail="Learning space not found.")
+    personal_context = await load_personal_context(
+        db,
+        request.space_id,
+        request.question,
+    )
+    history = await load_recent_history(
+        db,
+        request.session_id,
+        chat_type="learning",
+        space_id=request.space_id,
+    )
 
     route = route_agent(AgentState(
         query=request.question,
         session_id=request.session_id,
         space_id=request.space_id,
+        history=history,
+        fixed_context=personal_context.fixed_context,
+        memory_context=personal_context.memory_context,
     ))
 
     async def event_generator():
@@ -236,6 +340,9 @@ async def chat_stream(
             research_state = ResearchState(
                 query=request.question,
                 space_id=request.space_id,
+                fixed_context=personal_context.fixed_context,
+                memory_context=personal_context.memory_context,
+                history=history,
                 progress_callback=queue.put_nowait,
             )
             task = asyncio.create_task(research_graph.run(research_state))
@@ -259,6 +366,9 @@ async def chat_stream(
             top_k=request.top_k,
             score_threshold=request.score_threshold,
             filter_dict={"space_id": request.space_id},
+            fixed_context=personal_context.fixed_context,
+            memory_context=personal_context.memory_context,
+            history=history,
         ):
             yield token
 

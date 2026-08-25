@@ -65,7 +65,7 @@ Research questions:
 {research_questions}
 
 Available evidence:
-{evidence}
+Use the retrieved knowledge supplied before this request.
 
 Return exactly:
 {{
@@ -88,8 +88,7 @@ SYNTHESIZE_USER_PROMPT = """Write a research report answering the original reque
 Original request:
 {query}
 
-Numbered evidence:
-{evidence}
+Use the numbered evidence in the retrieved knowledge supplied before this request.
 
 Known limitations or missing topics:
 {limitations}

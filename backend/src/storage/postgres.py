@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from typing import AsyncGenerator
-from sqlalchemy import String, DateTime, Integer, Text, ForeignKey, JSON, text
+from sqlalchemy import String, DateTime, Float, Integer, Text, ForeignKey, JSON, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
@@ -44,12 +44,14 @@ class LearningSpace(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name: Mapped[str] = mapped_column(String, nullable=False)
     color: Mapped[str] = mapped_column(String, default="blue", nullable=False)
+    fixed_context: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
     documents = relationship("Document", back_populates="space", cascade="all, delete-orphan")
     learning_tools = relationship("LearningTool", back_populates="space", cascade="all, delete-orphan")
+    memories = relationship("LongTermMemory", back_populates="space", cascade="all, delete-orphan")
 
 
 class Document(Base):
@@ -116,6 +118,30 @@ class ChatConversation(Base):
     )
 
 
+class LongTermMemory(Base):
+    __tablename__ = "long_term_memories"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    space_id: Mapped[str] = mapped_column(
+        String,
+        ForeignKey("learning_spaces.id"),
+        index=True,
+        nullable=False,
+    )
+    category: Mapped[str] = mapped_column(String, index=True, nullable=False)
+    key: Mapped[str] = mapped_column(String, nullable=False)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    importance: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    space = relationship("LearningSpace", back_populates="memories")
+
+
 class LearningTool(Base):
     __tablename__ = "learning_tools"
 
@@ -140,6 +166,10 @@ async def init_db() -> None:
         await conn.run_sync(Base.metadata.create_all)
         # create_all does not alter existing tables. Upgrade early development
         # databases in place and preserve their documents in one real space.
+        await conn.execute(text(
+            "ALTER TABLE learning_spaces "
+            "ADD COLUMN IF NOT EXISTS fixed_context TEXT"
+        ))
         await conn.execute(text("ALTER TABLE documents ADD COLUMN IF NOT EXISTS space_id VARCHAR"))
         await conn.execute(text("""
             INSERT INTO learning_spaces (id, name, color, created_at)

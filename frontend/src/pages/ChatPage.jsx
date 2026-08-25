@@ -1,4 +1,4 @@
-import { BookOpen, BrainCircuit, FileText, Lightbulb, LoaderCircle, Menu, Sparkles } from 'lucide-react'
+import { BookOpen, BrainCircuit, FileText, Lightbulb, LoaderCircle, Menu, Sparkles, UserRound } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import MessageList from '../components/chat/MessageList'
 import SuggestedPrompts from '../components/chat/SuggestedPrompts'
@@ -179,7 +179,7 @@ export default function ChatPage({ onNavigate }) {
     <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
       <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-line bg-white px-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3"><button type="button" onClick={() => setSidebarOpen(true)} aria-label="Open conversation history" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line text-muted hover:bg-slate-50 hover:text-ink lg:hidden"><Menu size={18} /></button><BrandLogo className="h-10 w-10 rounded-xl bg-white p-0.5 shadow-[0_7px_18px_rgba(11,25,48,.14)] ring-1 ring-line" /><div className="min-w-0"><h1 className="truncate font-['Manrope'] text-sm font-bold text-ink">{conversations.find((item) => item.id === activeConversationId)?.title || 'ICU Tutor'}</h1><p className="mt-0.5 truncate text-[10px] text-muted">Your AI learning companion</p></div></div>
-        <button onClick={() => onNavigate('/learn')} className="flex shrink-0 items-center gap-2 rounded-xl bg-navy px-3.5 py-2.5 text-xs font-semibold text-white shadow-[0_6px_16px_rgba(11,25,48,.13)] transition hover:-translate-y-0.5 hover:bg-teal hover:shadow-[0_8px_20px_rgba(18,184,170,.2)] sm:px-4"><BookOpen size={15} /><span className="hidden sm:inline">Learn with your files</span><span className="sm:hidden">Your files</span></button>
+        <div className="flex shrink-0 items-center gap-2"><button onClick={() => onNavigate('/personalization')} className="grid h-10 w-10 place-items-center rounded-xl border border-line bg-white text-muted transition hover:border-teal/30 hover:bg-teal/[.05] hover:text-teal sm:flex sm:w-auto sm:gap-2 sm:px-3" aria-label="Cá nhân hóa"><UserRound size={16} /><span className="hidden text-xs font-semibold sm:inline">Cá nhân hóa</span></button><button onClick={() => onNavigate('/learn')} className="flex shrink-0 items-center gap-2 rounded-xl bg-navy px-3.5 py-2.5 text-xs font-semibold text-white shadow-[0_6px_16px_rgba(11,25,48,.13)] transition hover:-translate-y-0.5 hover:bg-teal hover:shadow-[0_8px_20px_rgba(18,184,170,.2)] sm:px-4"><BookOpen size={15} /><span className="hidden sm:inline">Learn with your files</span><span className="sm:hidden">Your files</span></button></div>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto">

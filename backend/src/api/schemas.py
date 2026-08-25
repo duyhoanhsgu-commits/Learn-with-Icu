@@ -1,6 +1,8 @@
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
+
+from src.agent.context.memory import MAX_FIXED_CONTEXT_CHARS
 
 
 # --- Document Schemas ---
@@ -17,6 +19,45 @@ class LearningSpaceResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class SpaceContextUpdate(BaseModel):
+    fixed_context: str = Field(default="", max_length=MAX_FIXED_CONTEXT_CHARS)
+
+
+class SpaceContextResponse(BaseModel):
+    space_id: str
+    fixed_context: str
+
+
+class SpaceContextUpdateResponse(SpaceContextResponse):
+    updated: bool = True
+
+
+MemoryCategory = Literal[
+    "goal",
+    "preference",
+    "technical_decision",
+    "project",
+    "fact",
+    "other",
+]
+
+
+class LongTermMemoryPayload(BaseModel):
+    category: MemoryCategory = "fact"
+    key: str = Field(..., min_length=1, max_length=120)
+    value: str = Field(..., min_length=1, max_length=2000)
+    importance: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+class LongTermMemoryResponse(LongTermMemoryPayload):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    space_id: str
+    created_at: datetime
+    updated_at: datetime
 
 
 class DocumentResponse(BaseModel):
@@ -48,6 +89,10 @@ class DocumentUploadResponse(BaseModel):
 class GeneralChatRequest(BaseModel):
     question: str = Field(..., description="User query / question")
     session_id: str = Field(default="default_session", description="Chat session identifier")
+    space_id: Optional[str] = Field(
+        default=None,
+        description="Optional learning space whose fixed context should be used",
+    )
 
 
 class ChatQueryRequest(GeneralChatRequest):

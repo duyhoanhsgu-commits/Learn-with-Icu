@@ -1,5 +1,6 @@
 from typing import List, Dict, Any, AsyncGenerator
 from openai import AsyncOpenAI
+from src.agent.context import context_builder
 from src.core.config import settings
 from src.core.logging import logger
 
@@ -54,9 +55,23 @@ If you don't know the answer or if the context does not contain enough informati
         return prompt
 
     @staticmethod
+    def _format_retrieved_contexts(contexts: List[Dict[str, Any]]) -> str:
+        formatted_contexts = []
+        for idx, ctx in enumerate(contexts, 1):
+            source = ctx.get("source", "doc")
+            url = ctx.get("url")
+            text = ctx.get("text", "")
+            source_label = f"{source} — {url}" if url else source
+            formatted_contexts.append(f"[{idx}] (Source: {source_label})\n{text}")
+        return "\n\n".join(formatted_contexts) if formatted_contexts else "No context found."
+
+    @staticmethod
     def _build_rag_system_prompt(system_prompt: str = "") -> str:
         """Build shared instructions for normal and streaming RAG responses."""
-        role_prompt = system_prompt or "You are a helpful and precise RAG assistant."
+        role_prompt = system_prompt or (
+            "You are a helpful and precise RAG assistant. Answer factual claims from "
+            "the retrieved knowledge. If it is insufficient, clearly state the limitation."
+        )
         return f"{role_prompt}\n\n{_RESPONSE_FORMAT_GUIDANCE}\n\n{_CITATION_GUIDANCE}"
 
     async def generate_response(
@@ -65,26 +80,34 @@ If you don't know the answer or if the context does not contain enough informati
         contexts: List[Dict[str, Any]],
         system_prompt: str = "",
         image_data_url: str | None = None,
+        fixed_context: str | None = None,
+        memory_context: str | None = None,
+        history: List[Dict[str, str]] | None = None,
     ) -> str:
         """Generate complete answer string for the query."""
-        user_prompt = self._build_prompt(query, contexts)
         sys_prompt = self._build_rag_system_prompt(system_prompt)
 
-        user_content: Any = user_prompt
+        user_content: Any = query
         if image_data_url:
             user_content = [
-                {"type": "text", "text": user_prompt},
+                {"type": "text", "text": query},
                 {"type": "image_url", "image_url": {"url": image_data_url}},
             ]
+
+        messages = context_builder.build_messages(
+            base_system_prompt=sys_prompt,
+            fixed_context=fixed_context,
+            memory_context=memory_context,
+            retrieved_context=self._format_retrieved_contexts(contexts),
+            recent_messages=history,
+            query=user_content,
+        )
 
         if self._client:
             try:
                 response = await self._client.chat.completions.create(
                     model=self.model_name,
-                    messages=[
-                        {"role": "system", "content": sys_prompt},
-                        {"role": "user", "content": user_content},
-                    ],
+                    messages=messages,
                     temperature=0.2,
                 )
                 return response.choices[0].message.content or ""
@@ -102,29 +125,41 @@ If you don't know the answer or if the context does not contain enough informati
         )
 
     @staticmethod
-    def _build_general_messages(query: str, history: List[Dict[str, str]] | None = None) -> List[Dict[str, str]]:
-        messages = [
-            {"role": "system", "content": f"You are ICU Tutor, a helpful learning assistant.\n\n{_RESPONSE_FORMAT_GUIDANCE}"},
-        ]
-        for message in (history or [])[-20:]:
-            role = message.get("role")
-            content = message.get("content", "").strip()
-            if role in {"user", "assistant"} and content:
-                messages.append({"role": role, "content": content})
-        messages.append({"role": "user", "content": query})
-        return messages
+    def _build_general_messages(
+        query: str,
+        history: List[Dict[str, str]] | None = None,
+        fixed_context: str | None = None,
+        memory_context: str | None = None,
+    ) -> List[Dict[str, Any]]:
+        return context_builder.build_messages(
+            base_system_prompt=(
+                "You are ICU Tutor, a helpful learning assistant.\n\n"
+                f"{_RESPONSE_FORMAT_GUIDANCE}"
+            ),
+            fixed_context=fixed_context,
+            memory_context=memory_context,
+            recent_messages=history,
+            query=query,
+        )
 
     async def generate_general_response(
         self,
         query: str,
         history: List[Dict[str, str]] | None = None,
+        fixed_context: str | None = None,
+        memory_context: str | None = None,
     ) -> str:
         """Answer without retrieval context for the General Chat screen."""
         if self._client:
             try:
                 response = await self._client.chat.completions.create(
                     model=self.model_name,
-                    messages=self._build_general_messages(query, history),
+                    messages=self._build_general_messages(
+                        query,
+                        history,
+                        fixed_context,
+                        memory_context,
+                    ),
                     temperature=0.4,
                 )
                 return response.choices[0].message.content or ""
@@ -137,20 +172,30 @@ If you don't know the answer or if the context does not contain enough informati
         )
 
     async def generate_stream(
-        self, query: str, contexts: List[Dict[str, Any]], system_prompt: str = ""
+        self,
+        query: str,
+        contexts: List[Dict[str, Any]],
+        system_prompt: str = "",
+        fixed_context: str | None = None,
+        memory_context: str | None = None,
+        history: List[Dict[str, str]] | None = None,
     ) -> AsyncGenerator[str, None]:
         """Stream generated response token by token."""
-        user_prompt = self._build_prompt(query, contexts)
         sys_prompt = self._build_rag_system_prompt(system_prompt)
+        messages = context_builder.build_messages(
+            base_system_prompt=sys_prompt,
+            fixed_context=fixed_context,
+            memory_context=memory_context,
+            retrieved_context=self._format_retrieved_contexts(contexts),
+            recent_messages=history,
+            query=query,
+        )
 
         if self._client:
             try:
                 stream = await self._client.chat.completions.create(
                     model=self.model_name,
-                    messages=[
-                        {"role": "system", "content": sys_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
+                    messages=messages,
                     temperature=0.2,
                     stream=True,
                 )
@@ -163,7 +208,14 @@ If you don't know the answer or if the context does not contain enough informati
                 logger.error(f"LLM Streaming error: {e}")
 
         # Fallback stream
-        fallback_msg = await self.generate_response(query, contexts, system_prompt)
+        fallback_msg = await self.generate_response(
+            query=query,
+            contexts=contexts,
+            system_prompt=system_prompt,
+            fixed_context=fixed_context,
+            memory_context=memory_context,
+            history=history,
+        )
         for word in fallback_msg.split(" "):
             yield word + " "
 

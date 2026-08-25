@@ -19,6 +19,9 @@ async def summarize_node(state: AgentState) -> AgentState:
             "provided document context and clearly state any coverage limitations."
         ),
         image_data_url=state.image_data_url,
+        fixed_context=state.fixed_context,
+        memory_context=state.memory_context,
+        history=state.history,
     )
     state.sources = contexts
     return state

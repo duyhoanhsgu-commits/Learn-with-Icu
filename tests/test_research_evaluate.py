@@ -54,7 +54,7 @@ def test_evaluator_fallback_routes_to_missing_question():
 
 
 class FixedPlanner:
-    async def plan(self, query):
+    async def plan(self, query, **kwargs):
         return ResearchPlan(
             research_questions=["one", "two", "three"],
             search_queries=["q1", "q2", "q3"],

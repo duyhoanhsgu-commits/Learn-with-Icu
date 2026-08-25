@@ -1,6 +1,7 @@
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field, field_validator
 
+from src.agent.context import context_builder
 from src.agent.research.prompts import EVALUATE_SYSTEM_PROMPT, EVALUATE_USER_PROMPT
 from src.agent.research.state import ResearchState
 from src.core.config import settings
@@ -58,14 +59,17 @@ class ResearchEvaluator:
         try:
             response = await self._client.chat.completions.create(
                 model=self.model_name,
-                messages=[
-                    {"role": "system", "content": EVALUATE_SYSTEM_PROMPT},
-                    {"role": "user", "content": EVALUATE_USER_PROMPT.format(
+                messages=context_builder.build_messages(
+                    base_system_prompt=EVALUATE_SYSTEM_PROMPT,
+                    fixed_context=state.fixed_context,
+                    memory_context=state.memory_context,
+                    retrieved_context=compact_evidence or "No evidence",
+                    recent_messages=state.history,
+                    query=EVALUATE_USER_PROMPT.format(
                         query=state.query,
                         research_questions="\n".join(f"- {item}" for item in state.research_questions),
-                        evidence=compact_evidence or "No evidence",
-                    )},
-                ],
+                    ),
+                ),
                 response_format={"type": "json_object"},
                 temperature=0,
             )

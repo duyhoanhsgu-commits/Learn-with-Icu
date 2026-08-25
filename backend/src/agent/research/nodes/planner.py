@@ -1,6 +1,7 @@
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from src.agent.context import context_builder
 from src.agent.research.prompts import PLANNER_SYSTEM_PROMPT, PLANNER_USER_PROMPT
 from src.agent.research.state import ResearchState
 from src.core.config import settings
@@ -69,17 +70,26 @@ class ResearchPlanner:
             ],
         )
 
-    async def plan(self, query: str) -> ResearchPlan:
+    async def plan(
+        self,
+        query: str,
+        fixed_context: str | None = None,
+        memory_context: str | None = None,
+        history: list[dict[str, str]] | None = None,
+    ) -> ResearchPlan:
         fallback = self.fallback(query)
         if not self._client:
             return fallback
         try:
             response = await self._client.chat.completions.create(
                 model=self.model_name,
-                messages=[
-                    {"role": "system", "content": PLANNER_SYSTEM_PROMPT},
-                    {"role": "user", "content": PLANNER_USER_PROMPT.format(query=query)},
-                ],
+                messages=context_builder.build_messages(
+                    base_system_prompt=PLANNER_SYSTEM_PROMPT,
+                    fixed_context=fixed_context,
+                    memory_context=memory_context,
+                    recent_messages=history,
+                    query=PLANNER_USER_PROMPT.format(query=query),
+                ),
                 response_format={"type": "json_object"},
                 temperature=0,
             )
@@ -93,7 +103,12 @@ class ResearchPlanner:
 
 async def planner_node(state: ResearchState, planner: ResearchPlanner) -> ResearchState:
     state.progress("research.plan", "Planning research questions")
-    plan = await planner.plan(state.query)
+    plan = await planner.plan(
+        state.query,
+        fixed_context=state.fixed_context,
+        memory_context=state.memory_context,
+        history=state.history,
+    )
     state.research_questions = plan.research_questions
     state.search_queries = plan.search_queries
     state.query_question_map = dict(zip(plan.search_queries, plan.research_questions))

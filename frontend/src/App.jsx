@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react'
 import ChatPage from './pages/ChatPage'
 import LearnPage from './pages/LearnPage'
+import PersonalizationPage from './pages/PersonalizationPage'
 import { documentsApi, toFrontendFile } from './api/documents'
 import { spacesApi } from './api/spaces'
 
 export default function App() {
-  const [path, setPath] = useState(() => window.location.pathname === '/learn' ? '/learn' : '/chat')
+  const normalizePath = (value) => ['/learn', '/personalization'].includes(value) ? value : '/chat'
+  const [path, setPath] = useState(() => normalizePath(window.location.pathname))
   const [learningSpaces, setLearningSpaces] = useState([])
   const [documentsState, setDocumentsState] = useState({ loading: true, error: '' })
 
   useEffect(() => {
     if (window.location.pathname !== path) window.history.replaceState({}, '', path)
-    const onPopState = () => setPath(window.location.pathname === '/learn' ? '/learn' : '/chat')
+    const onPopState = () => setPath(normalizePath(window.location.pathname))
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
@@ -38,7 +40,7 @@ export default function App() {
     setPath(nextPath)
   }
 
-  return path === '/learn'
-    ? <LearnPage learningSpaces={learningSpaces} setLearningSpaces={setLearningSpaces} documentsState={documentsState} onNavigate={navigate} />
-    : <ChatPage onNavigate={navigate} />
+  if (path === '/learn') return <LearnPage learningSpaces={learningSpaces} setLearningSpaces={setLearningSpaces} documentsState={documentsState} onNavigate={navigate} />
+  if (path === '/personalization') return <PersonalizationPage learningSpaces={learningSpaces} loadingSpaces={documentsState.loading} onNavigate={navigate} />
+  return <ChatPage onNavigate={navigate} />
 }

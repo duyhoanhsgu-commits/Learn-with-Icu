@@ -9,6 +9,9 @@ class ResearchState:
 
     query: str
     space_id: Optional[str] = None
+    fixed_context: Optional[str] = None
+    memory_context: Optional[str] = None
+    history: list[dict[str, str]] = field(default_factory=list)
     research_questions: list[str] = field(default_factory=list)
     search_queries: list[str] = field(default_factory=list)
     searched_queries: list[str] = field(default_factory=list)

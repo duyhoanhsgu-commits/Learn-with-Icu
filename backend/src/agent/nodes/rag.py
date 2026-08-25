@@ -9,6 +9,9 @@ async def rag_node(state: AgentState) -> AgentState:
         score_threshold=state.score_threshold,
         filter_dict={"space_id": state.space_id},
         image_data_url=state.image_data_url,
+        fixed_context=state.fixed_context,
+        memory_context=state.memory_context,
+        history=state.history,
     )
     state.answer = result["answer"]
     state.sources = result["sources"]

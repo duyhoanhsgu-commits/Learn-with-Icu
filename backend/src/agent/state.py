@@ -17,4 +17,6 @@ class AgentState:
     answer: str = ""
     sources: List[Dict[str, Any]] = field(default_factory=list)
     history: List[Dict[str, str]] = field(default_factory=list)
+    fixed_context: Optional[str] = None
+    memory_context: Optional[str] = None
     progress_events: List[Dict[str, Any]] = field(default_factory=list)

@@ -86,6 +86,9 @@ class RAGPipeline:
         score_threshold: float = 0.0,
         filter_dict: Optional[Dict[str, Any]] = None,
         image_data_url: Optional[str] = None,
+        fixed_context: Optional[str] = None,
+        memory_context: Optional[str] = None,
+        history: Optional[List[Dict[str, str]]] = None,
     ) -> Dict[str, Any]:
         """Process query through RAG pipeline: Retrieve -> Generate -> Return answer + sources."""
         logger.info(f"Executing RAG pipeline for query: '{query}'")
@@ -103,6 +106,9 @@ class RAGPipeline:
             query=query,
             contexts=contexts,
             image_data_url=image_data_url,
+            fixed_context=fixed_context,
+            memory_context=memory_context,
+            history=history,
         )
 
         return {
@@ -117,6 +123,9 @@ class RAGPipeline:
         top_k: int = 5,
         score_threshold: float = 0.0,
         filter_dict: Optional[Dict[str, Any]] = None,
+        fixed_context: Optional[str] = None,
+        memory_context: Optional[str] = None,
+        history: Optional[List[Dict[str, str]]] = None,
     ) -> AsyncGenerator[str, None]:
         """Stream answer tokens from RAG pipeline."""
         contexts = await self._retrieve_contexts(
@@ -126,7 +135,13 @@ class RAGPipeline:
             filter_dict=filter_dict,
         )
 
-        async for chunk in self.generator.generate_stream(query=query, contexts=contexts):
+        async for chunk in self.generator.generate_stream(
+            query=query,
+            contexts=contexts,
+            fixed_context=fixed_context,
+            memory_context=memory_context,
+            history=history,
+        ):
             yield chunk
 
 

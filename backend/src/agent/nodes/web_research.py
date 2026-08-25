@@ -40,6 +40,9 @@ async def web_research_node(state: AgentState) -> AgentState:
             "web pages, reconcile disagreements, distinguish facts from inference, and "
             "cite sources inline using their titles. Do not claim facts absent from them."
         ),
+        fixed_context=state.fixed_context,
+        memory_context=state.memory_context,
+        history=state.history,
     )
     state.sources = contexts
     return state
