@@ -22,12 +22,26 @@ _WEB_PATTERNS = (
     r"\bmới nhất\b",
 )
 
+_RESEARCH_PATTERNS = (
+    r"\bdeep research\b",
+    r"^\s*research\b",
+    r"\bresearch\s+(?:this|the|about|into|report|analysis)\b",
+    r"\bcompare\b.+\b(?:multiple|several) sources\b",
+    r"\b(?:analy[sz]e|analysis)\b.+\bmultiple sources\b",
+    r"\bnghiên cứu sâu\b",
+    r"\btìm hiểu kỹ\b",
+    r"\bso sánh\b.+\b(?:nhiều|đa) nguồn\b",
+    r"\bphân tích\b.+\b(?:nhiều|đa) nguồn\b",
+)
+
 
 def route_agent(state: AgentState) -> AgentRoute:
     """Choose one node deterministically from endpoint intent and query text."""
     if state.requested_route:
         return state.requested_route
     query = state.query.casefold()
+    if any(re.search(pattern, query) for pattern in _RESEARCH_PATTERNS):
+        return "research"
     if any(re.search(pattern, query) for pattern in _WEB_PATTERNS):
         return "web_research"
     if not state.space_id:

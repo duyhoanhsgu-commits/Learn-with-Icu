@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Dict, Any, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # --- Document Schemas ---
@@ -78,6 +78,32 @@ class ChatQueryResponse(BaseModel):
     question: str
     answer: str
     sources: List[SourceChunk]
+
+
+class ConversationCreate(BaseModel):
+    title: str = Field(default="New conversation", min_length=1, max_length=160)
+
+
+class ConversationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    title: str
+    chat_type: str
+    space_id: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+class ConversationMessageResponse(BaseModel):
+    id: str
+    role: str
+    content: str
+    sources: List[Dict[str, Any]] = Field(default_factory=list)
+    created_at: datetime
+
+
+class ConversationDetailResponse(ConversationResponse):
+    messages: List[ConversationMessageResponse]
 
 
 # --- Learning Tool Schemas ---

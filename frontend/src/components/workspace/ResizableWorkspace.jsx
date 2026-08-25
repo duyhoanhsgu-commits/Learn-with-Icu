@@ -31,6 +31,13 @@ function MobileDrawerHeader({ title, onClose }) {
   return <div className="flex h-12 shrink-0 items-center justify-between border-b border-line bg-white px-4 lg:hidden"><p className="text-xs font-bold text-ink">{title}</p><button onClick={onClose} aria-label="Close panel" className="rounded-xl border border-line p-2 text-muted hover:bg-slate-50 hover:text-ink"><X size={16} /></button></div>
 }
 
+function MobileEdgeTabs({ activePane, onOpen }) {
+  return <>
+    {activePane !== 'documents' && <button type="button" onClick={() => onOpen('documents')} aria-label="Open learning materials" title="Open learning materials" className="absolute left-0 top-1/2 z-40 flex -translate-y-1/2 flex-col items-center gap-1 rounded-r-xl border border-l-0 border-white/10 bg-midnight px-2 py-3 text-teal shadow-[5px_8px_22px_rgba(7,20,39,.22)] transition hover:bg-navy focus-visible:z-[60] lg:hidden"><Files size={16} /><span className="text-[8px] font-bold uppercase tracking-[.12em] [writing-mode:vertical-rl]">Files</span></button>}
+    {activePane !== 'tools' && <button type="button" onClick={() => onOpen('tools')} aria-label="Open study tools" title="Open study tools" className="absolute right-0 top-1/2 z-40 flex -translate-y-1/2 flex-col items-center gap-1 rounded-l-xl border border-r-0 border-line bg-white px-2 py-3 text-brandblue shadow-[-5px_8px_22px_rgba(18,33,59,.12)] transition hover:border-brandblue/30 hover:bg-brandblue/[.05] focus-visible:z-[60] lg:hidden"><Sparkles size={16} /><span className="text-[8px] font-bold uppercase tracking-[.12em] [writing-mode:vertical-rl]">Tools</span></button>}
+  </>
+}
+
 function ResizeHandle({ side, value, min, max, collapsed, onPointerDown, onKeyboardResize }) {
   return <div role="separator" aria-orientation="vertical" aria-label={`Resize ${side} panel`} aria-valuemin={collapsed ? RAIL_WIDTH : min} aria-valuemax={max} aria-valuenow={collapsed ? RAIL_WIDTH : value} aria-disabled={collapsed} tabIndex={collapsed ? -1 : 0} onPointerDown={collapsed ? undefined : onPointerDown} onKeyDown={collapsed ? undefined : onKeyboardResize} className={`workspace-resize-handle group relative hidden w-1.5 touch-none bg-line/50 outline-none lg:block ${collapsed ? 'cursor-default' : 'cursor-col-resize focus:bg-teal/15'}`}><span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-line transition-colors group-hover:bg-teal group-focus:bg-teal" /><span className="absolute left-1/2 top-1/2 h-9 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-300 opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100" /></div>
 }
@@ -49,7 +56,7 @@ function RightRail({ onRestore }) {
   return <aside className="relative hidden h-full w-16 flex-col items-center gap-2 border-l border-line bg-white py-4 lg:flex"><span className="absolute left-0 top-4 h-10 w-0.5 rounded-full bg-brandblue" />{icons.map((Icon, index) => <button key={index} onClick={onRestore} title="Open study tools" aria-label="Open study tools" className={`grid h-10 w-10 place-items-center rounded-xl transition ${index === 0 ? 'bg-brandblue/10 text-brandblue' : 'text-slate-400 hover:bg-slate-100 hover:text-ink'}`}><Icon size={17} /></button>)}</aside>
 }
 
-export default function ResizableWorkspace({ left, center, right, mobilePane, onCloseMobilePane, leftUnbounded = false, leftRevealKey = null }) {
+export default function ResizableWorkspace({ left, center, right, mobilePane, onOpenMobilePane, onCloseMobilePane, leftUnbounded = false, leftRevealKey = null }) {
   const containerRef = useRef(null)
   const [layout, setLayout] = useState(loadLayout)
   const [resizing, setResizing] = useState(false)
@@ -169,7 +176,8 @@ export default function ResizableWorkspace({ left, center, right, mobilePane, on
   const rightPanel = cloneElement(right, { onCollapse: collapseRight })
 
   return <div ref={containerRef} style={{ '--left-column': `${leftColumn}px`, '--right-column': `${rightColumn}px` }} className={`workspace-layout relative flex min-h-0 flex-1 overflow-hidden ${resizing ? 'is-resizing' : ''}`}>
-    <div className={`workspace-mobile-drawer workspace-mobile-drawer-left absolute inset-0 z-50 flex min-w-0 flex-col bg-white lg:static lg:z-auto lg:flex ${mobilePane === 'documents' ? 'is-open' : ''}`}><MobileDrawerHeader title="Learning materials" onClose={onCloseMobilePane} /><div className={`min-h-0 flex-1 ${layout.leftCollapsed ? 'lg:hidden' : ''}`}>{leftPanel}</div>{layout.leftCollapsed && <LeftRail onRestore={restoreLeft} />}</div>
+    <MobileEdgeTabs activePane={mobilePane} onOpen={onOpenMobilePane} />
+    <div className={`workspace-mobile-drawer workspace-mobile-drawer-left absolute inset-0 z-50 flex min-w-0 flex-col overflow-hidden bg-white lg:static lg:z-auto lg:flex ${mobilePane === 'documents' ? 'is-open' : ''}`}><MobileDrawerHeader title="Learning materials" onClose={onCloseMobilePane} /><div className={`min-h-0 flex-1 overflow-hidden ${layout.leftCollapsed ? 'lg:hidden' : ''}`}>{leftPanel}</div>{layout.leftCollapsed && <LeftRail onRestore={restoreLeft} />}</div>
     <ResizeHandle side="left" value={layout.leftWidth} min={LEFT_MIN} max={leftMaximum} collapsed={layout.leftCollapsed} onPointerDown={(event) => startResize('left', event)} onKeyboardResize={(event) => keyboardResize('left', event)} />
 
     <div className="min-h-0 min-w-0 flex-1 overflow-hidden">{center}</div>

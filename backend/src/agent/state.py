@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional
 
-AgentRoute = Literal["general_chat", "rag", "summarize", "web_research"]
+AgentRoute = Literal["general_chat", "rag", "summarize", "web_research", "research"]
 
 
 @dataclass
@@ -16,3 +16,5 @@ class AgentState:
     route: Optional[AgentRoute] = None
     answer: str = ""
     sources: List[Dict[str, Any]] = field(default_factory=list)
+    history: List[Dict[str, str]] = field(default_factory=list)
+    progress_events: List[Dict[str, Any]] = field(default_factory=list)

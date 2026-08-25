@@ -48,6 +48,34 @@ export async function askGeneralQuestion({ question, sessionId }) {
   return response.json()
 }
 
+async function conversationRequest(path, options = {}) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...options.headers },
+  })
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`
+    try {
+      const body = await response.json()
+      message = body.detail || body.message || message
+    } catch {
+      // Keep the HTTP status fallback when the response is not JSON.
+    }
+    throw new Error(message)
+  }
+  return response.status === 204 ? null : response.json()
+}
+
+export const conversationsApi = {
+  list: () => conversationRequest('/chat/conversations?chat_type=general'),
+  create: () => conversationRequest('/chat/conversations', {
+    method: 'POST',
+    body: JSON.stringify({ title: 'New conversation' }),
+  }),
+  get: (conversationId) => conversationRequest(`/chat/conversations/${conversationId}`),
+  remove: (conversationId) => conversationRequest(`/chat/conversations/${conversationId}`, { method: 'DELETE' }),
+}
+
 export function toFrontendSources(sources = []) {
   return sources.map((source) => ({
     fileId: source.document_id || null,

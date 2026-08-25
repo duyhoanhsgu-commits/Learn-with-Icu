@@ -101,16 +101,30 @@ If you don't know the answer or if the context does not contain enough informati
             f"Context preview:\n- {context_preview}"
         )
 
-    async def generate_general_response(self, query: str) -> str:
+    @staticmethod
+    def _build_general_messages(query: str, history: List[Dict[str, str]] | None = None) -> List[Dict[str, str]]:
+        messages = [
+            {"role": "system", "content": f"You are ICU Tutor, a helpful learning assistant.\n\n{_RESPONSE_FORMAT_GUIDANCE}"},
+        ]
+        for message in (history or [])[-20:]:
+            role = message.get("role")
+            content = message.get("content", "").strip()
+            if role in {"user", "assistant"} and content:
+                messages.append({"role": role, "content": content})
+        messages.append({"role": "user", "content": query})
+        return messages
+
+    async def generate_general_response(
+        self,
+        query: str,
+        history: List[Dict[str, str]] | None = None,
+    ) -> str:
         """Answer without retrieval context for the General Chat screen."""
         if self._client:
             try:
                 response = await self._client.chat.completions.create(
                     model=self.model_name,
-                    messages=[
-                        {"role": "system", "content": f"You are ICU Tutor, a helpful learning assistant.\n\n{_RESPONSE_FORMAT_GUIDANCE}"},
-                        {"role": "user", "content": query},
-                    ],
+                    messages=self._build_general_messages(query, history),
                     temperature=0.4,
                 )
                 return response.choices[0].message.content or ""

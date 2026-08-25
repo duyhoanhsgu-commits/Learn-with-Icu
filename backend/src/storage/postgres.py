@@ -101,6 +101,21 @@ class ChatMessage(Base):
     )
 
 
+class ChatConversation(Base):
+    __tablename__ = "chat_conversations"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    title: Mapped[str] = mapped_column(String, default="New conversation", nullable=False)
+    chat_type: Mapped[str] = mapped_column(String, default="general", index=True, nullable=False)
+    space_id: Mapped[str | None] = mapped_column(String, index=True, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
 class LearningTool(Base):
     __tablename__ = "learning_tools"
 
