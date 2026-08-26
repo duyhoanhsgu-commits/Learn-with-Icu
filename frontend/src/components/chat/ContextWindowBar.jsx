@@ -1,11 +1,11 @@
-import { AlignLeft, BrainCircuit, Eye, X } from 'lucide-react'
+import { AlignLeft, BrainCircuit, Eye, LoaderCircle, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 
 const DEFAULT_CONTEXT_TOKEN_LIMIT = 128000
 
 const formatTokens = (tokens) => tokens >= 1000 ? `${(tokens / 1000).toFixed(tokens >= 10000 ? 0 : 1)}K` : String(tokens)
 
-export default function ContextWindowBar({ tokenCount = 0, tokenLimit = DEFAULT_CONTEXT_TOKEN_LIMIT, contextItems = [], canSummarize, disabled, summarizing, onSummary }) {
+export default function ContextWindowBar({ tokenCount = 0, tokenLimit = DEFAULT_CONTEXT_TOKEN_LIMIT, contextItems = [], canSummarize, disabled, summarizing, deletingId, onSummary, onDeleteItem }) {
   const [viewerOpen, setViewerOpen] = useState(false)
   const activeCount = Math.min(tokenCount, tokenLimit)
   const usage = (activeCount / tokenLimit) * 100
@@ -37,7 +37,7 @@ export default function ContextWindowBar({ tokenCount = 0, tokenLimit = DEFAULT_
       </div>
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4 sm:px-6">
         {contextItems.length ? contextItems.map((item, index) => <article key={`${item.kind}-${index}`} className="rounded-2xl border border-line bg-white p-4">
-          <div className="mb-2 flex items-center justify-between gap-3"><span className="text-[10px] font-bold uppercase tracking-wider text-brandblue">{item.kind === 'summary' ? 'Context summary' : item.role === 'user' ? 'You' : 'ICU Tutor'}</span><span className="text-[9px] font-medium text-muted">{formatTokens(item.token_count)} tokens</span></div>
+          <div className="mb-2 flex items-center justify-between gap-3"><span className="text-[10px] font-bold uppercase tracking-wider text-brandblue">{item.kind === 'summary' ? 'Context summary' : item.role === 'user' ? 'You' : 'ICU Tutor'}</span><div className="flex items-center gap-2"><span className="text-[9px] font-medium text-muted">{formatTokens(item.token_count)} tokens</span><button type="button" onClick={() => onDeleteItem(item.id)} disabled={disabled || deletingId === item.id} aria-label="Remove item from context" title="Remove from context" className="grid h-7 w-7 place-items-center rounded-lg border border-line text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50">{deletingId === item.id ? <LoaderCircle size={12} className="animate-spin" /> : <Trash2 size={12} />}</button></div></div>
           <p className="whitespace-pre-wrap break-words text-xs leading-6 text-slate-600">{item.content}</p>
         </article>) : <p className="py-8 text-center text-xs text-muted">No active context yet.</p>}
       </div>

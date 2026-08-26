@@ -74,6 +74,8 @@ export const conversationsApi = {
   }),
   get: (conversationId) => conversationRequest(`/chat/conversations/${conversationId}`),
   compact: (conversationId) => conversationRequest(`/chat/conversations/${conversationId}/compact`, { method: 'POST' }),
+  removeContextItem: (conversationId, itemId) => conversationRequest(`/chat/conversations/${conversationId}/context/${encodeURIComponent(itemId)}`, { method: 'DELETE' }),
+  clear: (conversationId) => conversationRequest(`/chat/conversations/${conversationId}/clear`, { method: 'POST' }),
   remove: (conversationId) => conversationRequest(`/chat/conversations/${conversationId}`, { method: 'DELETE' }),
 }
 

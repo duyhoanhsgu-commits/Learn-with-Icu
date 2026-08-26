@@ -1,4 +1,4 @@
-import { BookOpen, BrainCircuit, FileText, Lightbulb, LoaderCircle, Menu, Sparkles } from 'lucide-react'
+import { BookOpen, BrainCircuit, Eraser, FileText, Lightbulb, LoaderCircle, Menu, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import MessageList from '../components/chat/MessageList'
 import SuggestedPrompts from '../components/chat/SuggestedPrompts'
@@ -40,6 +40,7 @@ export default function ChatPage({ onNavigate }) {
   const [contextCanCompact, setContextCanCompact] = useState(false)
   const [contextItems, setContextItems] = useState([])
   const [contextSummarizing, setContextSummarizing] = useState(false)
+  const [contextDeletingId, setContextDeletingId] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
   const [historyError, setHistoryError] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -214,6 +215,42 @@ export default function ChatPage({ onNavigate }) {
     }
   }
 
+  const removeContextItem = async (itemId) => {
+    if (!activeConversationId || !itemId || isTyping || actionLoading || conversationLoading) return
+    setContextDeletingId(itemId)
+    setActionLoading(true)
+    setHistoryError('')
+    try {
+      await conversationsApi.removeContextItem(activeConversationId, itemId)
+      const detail = await conversationsApi.get(activeConversationId)
+      setContextTokenCount(detail.context_token_count ?? 0)
+      setContextTokenLimit(detail.context_token_limit ?? 128000)
+      setContextCanCompact(detail.context_can_compact ?? false)
+      setContextItems(detail.context_items ?? [])
+    } catch (error) {
+      setHistoryError(error.message)
+    } finally {
+      setContextDeletingId('')
+      setActionLoading(false)
+    }
+  }
+
+  const clearChat = async () => {
+    if (!activeConversationId || !messages.length || isTyping || actionLoading || conversationLoading) return
+    if (!window.confirm('Clear the visible chat? Your current context window will be kept.')) return
+    setActionLoading(true)
+    setHistoryError('')
+    try {
+      await conversationsApi.clear(activeConversationId)
+      setMessages([])
+      setDraft('')
+    } catch (error) {
+      setHistoryError(error.message)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
   const sidebarDisabled = historyLoading || isTyping || actionLoading || conversationLoading
 
   return <main className="flex h-[100dvh] gap-3 overflow-hidden bg-canvas p-3 sm:p-4">
@@ -222,7 +259,7 @@ export default function ChatPage({ onNavigate }) {
     <section className="flex min-w-0 flex-1 flex-col gap-3 overflow-hidden">
       <header className="flex min-h-[72px] shrink-0 items-center justify-between rounded-[20px] border border-line bg-white px-3 shadow-[0_4px_20px_rgba(15,23,42,.04)] sm:px-6">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3"><button type="button" onClick={() => setSidebarOpen(true)} aria-label="Open conversation history" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line text-muted hover:bg-slate-50 hover:text-ink lg:hidden"><Menu size={18} /></button><BrandLogo className="h-10 w-10 rounded-xl border border-line bg-white p-0.5 shadow-sm" /><div className="min-w-0"><h1 className="truncate font-['Manrope'] text-sm font-bold text-ink">{conversations.find((item) => item.id === activeConversationId)?.title || 'ICU Tutor'}</h1><p className="mt-0.5 truncate text-[10px] text-muted">Your AI learning companion</p></div></div>
-        <div className="flex shrink-0 items-center gap-2"><button onClick={() => onNavigate('/learn')} className="flex h-10 shrink-0 items-center gap-2 rounded-xl bg-brandblue px-3.5 text-xs font-semibold text-white transition hover:bg-[#426de8] sm:px-4"><BookOpen size={15} /><span className="hidden sm:inline">Learn with your files</span><span className="sm:hidden">Your files</span></button></div>
+        <div className="flex shrink-0 items-center gap-2"><button type="button" onClick={clearChat} disabled={!messages.length || isTyping || actionLoading || conversationLoading} aria-label="Clear visible chat" title="Clear chat without removing context" className="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-line bg-white px-3 text-xs font-semibold text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300"><Eraser size={15} /><span className="hidden md:inline">Clear chat</span></button><button onClick={() => onNavigate('/learn')} className="flex h-10 shrink-0 items-center gap-2 rounded-xl bg-brandblue px-3.5 text-xs font-semibold text-white transition hover:bg-[#426de8] sm:px-4"><BookOpen size={15} /><span className="hidden sm:inline">Learn with your files</span><span className="sm:hidden">Your files</span></button></div>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-line bg-white shadow-[0_4px_20px_rgba(15,23,42,.04)]">
@@ -240,7 +277,7 @@ export default function ChatPage({ onNavigate }) {
 
       <div className="general-chat-bottom shrink-0 bg-white px-0 pb-1 pt-3 sm:px-4">
         {!messages.length && !conversationLoading ? <SuggestedPrompts prompts={generalPrompts} onSelect={setDraft} variant="landing" /> : null}
-        <ContextWindowBar tokenCount={contextTokenCount} tokenLimit={contextTokenLimit} contextItems={contextItems} canSummarize={contextCanCompact} disabled={isTyping || actionLoading || conversationLoading} summarizing={contextSummarizing} onSummary={summarizeContext} />
+        <ContextWindowBar tokenCount={contextTokenCount} tokenLimit={contextTokenLimit} contextItems={contextItems} canSummarize={contextCanCompact} disabled={isTyping || actionLoading || conversationLoading} summarizing={contextSummarizing} deletingId={contextDeletingId} onSummary={summarizeContext} onDeleteItem={removeContextItem} />
         <ChatInput value={draft} onChange={setDraft} onSubmit={send} disabled={isTyping || actionLoading || conversationLoading} placeholder="Ask ICU anything…" variant="general" />
       </div>
       </div>

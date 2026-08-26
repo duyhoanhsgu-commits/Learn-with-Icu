@@ -156,6 +156,7 @@ class ConversationMessageResponse(BaseModel):
 
 
 class ContextWindowItem(BaseModel):
+    id: str
     role: str
     content: str
     token_count: int

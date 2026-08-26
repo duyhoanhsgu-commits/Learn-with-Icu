@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from typing import AsyncGenerator
-from sqlalchemy import String, DateTime, Float, Integer, Text, ForeignKey, JSON, text
+from sqlalchemy import Boolean, String, DateTime, Float, Integer, Text, ForeignKey, JSON, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
@@ -98,6 +98,7 @@ class ChatMessage(Base):
     role: Mapped[str] = mapped_column(String, nullable=False)  # user, assistant, system
     content: Mapped[str] = mapped_column(Text, nullable=False)
     sources: Mapped[dict] = mapped_column(JSON, default=dict)
+    excluded_from_context: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -112,6 +113,9 @@ class ChatConversation(Base):
     space_id: Mapped[str | None] = mapped_column(String, index=True, nullable=True)
     context_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     context_compacted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    chat_cleared_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
@@ -213,6 +217,14 @@ async def init_db() -> None:
         await conn.execute(text(
             "ALTER TABLE chat_conversations "
             "ADD COLUMN IF NOT EXISTS context_compacted_at TIMESTAMPTZ"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE chat_messages "
+            "ADD COLUMN IF NOT EXISTS excluded_from_context BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE chat_conversations "
+            "ADD COLUMN IF NOT EXISTS chat_cleared_at TIMESTAMPTZ"
         ))
 
 

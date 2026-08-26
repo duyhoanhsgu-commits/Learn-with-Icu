@@ -80,7 +80,10 @@ async def load_recent_history(
             status_code=409,
             detail="Conversation does not belong to this chat type or learning space.",
         )
-    query = select(ChatMessage).where(ChatMessage.session_id == session_id)
+    query = select(ChatMessage).where(
+        ChatMessage.session_id == session_id,
+        ChatMessage.excluded_from_context.is_(False),
+    )
     if conversation.context_compacted_at:
         query = query.where(ChatMessage.created_at > conversation.context_compacted_at)
     result = await db.execute(
@@ -187,8 +190,15 @@ async def get_conversation(
         .where(ChatMessage.session_id == conversation_id)
         .order_by(ChatMessage.created_at.asc())
     )
+    stored_messages = list(result.scalars().all())
     messages = []
-    for message in result.scalars().all():
+    visible_messages = [
+        message
+        for message in stored_messages
+        if conversation.chat_cleared_at is None
+        or message.created_at > conversation.chat_cleared_at
+    ]
+    for message in visible_messages:
         stored_sources = message.sources or {}
         messages.append(ConversationMessageResponse(
             id=message.id,
@@ -202,26 +212,30 @@ async def get_conversation(
         f"{conversation.context_summary}"
         if conversation.context_summary else ""
     )
-    active_context = context_builder.recent_messages([
-        *([{"role": "assistant", "content": summary_content}] if summary_content else []),
+    raw_context_items = [
+        *([{"id": "context-summary", "role": "assistant", "content": summary_content, "kind": "summary"}] if summary_content else []),
         *[
-            {"role": message.role, "content": message.content}
-            for message in messages
-            if message.role in {"user", "assistant"}
+            {"id": message.id, "role": message.role, "content": message.content, "kind": "message"}
+            for message in stored_messages
+            if not message.excluded_from_context
+            and message.role in {"user", "assistant"}
             and (
                 conversation.context_compacted_at is None
                 or message.created_at > conversation.context_compacted_at
             )
         ],
-    ], CONTEXT_INPUT_TOKEN_BUDGET)
+    ]
+    active_context = context_builder.recent_messages(raw_context_items, CONTEXT_INPUT_TOKEN_BUDGET)
+    active_item_metadata = raw_context_items[-len(active_context):] if active_context else []
     context_items = [
         ContextWindowItem(
+            id=metadata["id"],
             role=message["role"],
             content=message["content"],
             token_count=context_builder.count_message_tokens(message),
-            kind="summary" if summary_content and message["content"] == summary_content else "message",
+            kind=metadata["kind"],
         )
-        for message in active_context
+        for metadata, message in zip(active_item_metadata, active_context)
     ]
 
     return ConversationDetailResponse.model_validate({
@@ -240,7 +254,8 @@ async def get_conversation(
                 conversation.context_compacted_at is None
                 or message.created_at > conversation.context_compacted_at
             )
-            for message in messages
+            for message in stored_messages
+            if not message.excluded_from_context
         ),
         "context_items": context_items,
     })
@@ -303,12 +318,58 @@ async def compact_conversation_context(
         context_token_limit=CONTEXT_WINDOW_TOKEN_LIMIT,
         context_can_compact=False,
         context_items=[ContextWindowItem(
+            id="context-summary",
             role="assistant",
             content=summary_message["content"],
             token_count=context_builder.count_message_tokens(summary_message),
             kind="summary",
         )],
     )
+
+
+@router.delete(
+    "/conversations/{conversation_id}/context/{item_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def remove_context_item(
+    conversation_id: str,
+    item_id: str,
+    db: AsyncSession = Depends(get_db_session),
+):
+    conversation = await db.get(ChatConversation, conversation_id)
+    if not conversation or conversation.chat_type != "general":
+        raise HTTPException(status_code=404, detail="Conversation not found.")
+
+    if item_id == "context-summary":
+        if not conversation.context_summary:
+            raise HTTPException(status_code=404, detail="Context item not found.")
+        conversation.context_summary = None
+    else:
+        message = await db.get(ChatMessage, item_id)
+        if not message or message.session_id != conversation_id:
+            raise HTTPException(status_code=404, detail="Context item not found.")
+        message.excluded_from_context = True
+
+    conversation.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+
+
+@router.post(
+    "/conversations/{conversation_id}/clear",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def clear_visible_chat(
+    conversation_id: str,
+    db: AsyncSession = Depends(get_db_session),
+):
+    conversation = await db.get(ChatConversation, conversation_id)
+    if not conversation or conversation.chat_type != "general":
+        raise HTTPException(status_code=404, detail="Conversation not found.")
+
+    now = datetime.now(timezone.utc)
+    conversation.chat_cleared_at = now
+    conversation.updated_at = now
+    await db.commit()
 
 
 @router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
