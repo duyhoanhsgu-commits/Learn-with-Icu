@@ -142,6 +142,28 @@ class LongTermMemory(Base):
     space = relationship("LearningSpace", back_populates="memories")
 
 
+class GlobalLongTermMemory(Base):
+    """User profile memory shared by every chat and learning space.
+
+    Authentication is not wired into this single-user application yet, so this
+    table intentionally represents the one global ICU profile.
+    """
+
+    __tablename__ = "global_long_term_memories"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    category: Mapped[str] = mapped_column(String, index=True, nullable=False)
+    key: Mapped[str] = mapped_column(String, nullable=False)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    importance: Mapped[float] = mapped_column(Float, default=0.7, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
 class LearningTool(Base):
     __tablename__ = "learning_tools"
 

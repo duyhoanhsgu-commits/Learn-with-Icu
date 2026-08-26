@@ -55,8 +55,6 @@ async def load_personal_context(
     space_id: str | None,
     query: str,
 ) -> PersonalContext:
-    if not space_id:
-        return PersonalContext()
     try:
         return await personal_context_service.load(db, space_id, query)
     except SpaceNotFoundError as exc:

@@ -60,6 +60,14 @@ class LongTermMemoryResponse(LongTermMemoryPayload):
     updated_at: datetime
 
 
+class GlobalLongTermMemoryResponse(LongTermMemoryPayload):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
 class DocumentResponse(BaseModel):
     id: str
     space_id: str

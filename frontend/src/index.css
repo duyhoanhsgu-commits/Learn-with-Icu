@@ -101,6 +101,146 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-
 .assistant-markdown .katex-display { margin: 1em 0; overflow-x: auto; overflow-y: hidden; padding: .5rem 0; }
 .message-sources > div > a, .message-sources > div > div { margin-top: 0; }
 
+.personalization-page {
+  min-height: 100vh;
+  background: #f6f8fb;
+}
+
+.personalization-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  height: 72px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--icu-border);
+  background: rgba(255, 255, 255, .96);
+  padding: 0 28px;
+  backdrop-filter: blur(12px);
+}
+
+.personalization-layout {
+  display: grid;
+  width: 100%;
+  max-width: 1500px;
+  min-width: 0;
+  margin: 0 auto;
+  align-items: start;
+  gap: 20px;
+  padding: 24px;
+}
+
+.personalization-sidebar,
+.personalization-preview,
+.personalization-progress-card,
+.personalization-dashboard-card,
+.personalization-form-card {
+  border: 1px solid var(--icu-border);
+  background: white;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, .025);
+}
+
+.personalization-sidebar {
+  width: 250px;
+  min-width: 0;
+  border-radius: 20px;
+  padding: 16px;
+}
+
+.personalization-sidebar-privacy {
+  margin-top: 32px;
+  border: 1px solid var(--icu-border);
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 14px;
+}
+
+.personalization-main {
+  width: 100%;
+  min-width: 0;
+}
+
+.personalization-hero {
+  min-height: 176px;
+  border: 1px solid #e4eaff;
+  border-radius: 20px;
+  background: #f8faff;
+  padding: 28px 32px;
+}
+
+.personalization-progress-card {
+  border-radius: 18px;
+  padding: 20px 24px;
+}
+
+.personalization-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.personalization-dashboard-card {
+  min-width: 0;
+  border-radius: 18px;
+  padding: 22px;
+}
+
+.personalization-form-card {
+  min-width: 0;
+  border-radius: 18px;
+  padding: 24px;
+}
+
+.personalization-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.personalization-field-wide { grid-column: 1 / -1; }
+
+.personalization-preview {
+  width: 340px;
+  min-width: 0;
+  position: sticky;
+  top: 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-radius: 20px;
+  padding: 22px;
+}
+
+@media (min-width: 1200px) {
+  .personalization-layout {
+    grid-template-columns: 250px minmax(0, 1fr) 340px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1199px) {
+  .personalization-layout {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .personalization-sidebar { width: 220px; }
+  .personalization-preview { display: none; }
+}
+
+@media (max-width: 768px) {
+  .personalization-header { height: 68px; padding: 0 16px; }
+  .personalization-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 14px; }
+  .personalization-sidebar { width: 100%; }
+  .personalization-preview { display: none; }
+  .personalization-dashboard-grid,
+  .personalization-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .personalization-hero { min-height: 0; padding: 24px 20px; }
+  .personalization-progress-card,
+  .personalization-dashboard-card,
+  .personalization-form-card { padding: 18px; }
+}
+
 @keyframes tool-page-enter {
   from { opacity: 0; transform: translateY(5px); }
   to { opacity: 1; transform: translateY(0); }
