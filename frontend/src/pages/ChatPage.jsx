@@ -1,10 +1,11 @@
-import { BookOpen, BrainCircuit, Eraser, FileText, Lightbulb, LoaderCircle, Menu, Sparkles } from 'lucide-react'
+import { BookOpen, BrainCircuit, Eraser, FileText, Lightbulb, LoaderCircle, Menu, PanelRightOpen, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import MessageList from '../components/chat/MessageList'
 import SuggestedPrompts from '../components/chat/SuggestedPrompts'
 import ChatInput from '../components/chat/ChatInput'
 import ContextWindowBar from '../components/chat/ContextWindowBar'
 import ConversationSidebar from '../components/chat/ConversationSidebar'
+import TutorOutputPanel from '../components/chat/TutorOutputPanel'
 import BrandLogo from '../components/common/BrandLogo'
 import { generalPrompts } from '../data/mockData'
 import { askGeneralQuestion, conversationsApi, toFrontendSources } from '../api/chat'
@@ -27,6 +28,15 @@ const toFrontendMessage = (message) => ({
   sources: toFrontendSources(message.sources),
 })
 
+const storedPanelWidth = (key, fallback, min, max) => {
+  const value = Number(localStorage.getItem(key))
+  return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback
+}
+
+function ResizeDivider({ side, onPointerDown }) {
+  return <div role="separator" aria-label={`Resize ${side} panel`} aria-orientation="vertical" onPointerDown={onPointerDown} className={`group relative hidden w-3 shrink-0 touch-none cursor-col-resize ${side === 'right' ? 'xl:block' : 'lg:block'}`}><span className="absolute inset-y-5 left-1/2 w-px -translate-x-1/2 bg-transparent transition group-hover:bg-brandblue/30" /><span className="absolute left-1/2 top-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brandblue/40 opacity-0 transition group-hover:opacity-100" /></div>
+}
+
 export default function ChatPage({ onNavigate }) {
   const [messages, setMessages] = useState([])
   const [conversations, setConversations] = useState([])
@@ -44,7 +54,51 @@ export default function ChatPage({ onNavigate }) {
   const [actionLoading, setActionLoading] = useState(false)
   const [historyError, setHistoryError] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [leftWidth, setLeftWidth] = useState(() => storedPanelWidth('icu-tutor-left-width', 286, 240, 420))
+  const [rightWidth, setRightWidth] = useState(() => storedPanelWidth('icu-tutor-output-width', 360, 300, 560))
+  const [rightPanelOpen, setRightPanelOpen] = useState(true)
+  const [outputMobileOpen, setOutputMobileOpen] = useState(false)
   const loadRequestRef = useRef(0)
+
+  useEffect(() => { localStorage.setItem('icu-tutor-left-width', String(leftWidth)) }, [leftWidth])
+  useEffect(() => { localStorage.setItem('icu-tutor-output-width', String(rightWidth)) }, [rightWidth])
+
+  const startPanelResize = (side, event) => {
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = side === 'left' ? leftWidth : rightWidth
+    const update = side === 'left' ? setLeftWidth : setRightWidth
+    const min = side === 'left' ? 240 : 300
+    const hardMax = side === 'left' ? 420 : 560
+    const move = (moveEvent) => {
+      const delta = moveEvent.clientX - startX
+      const proposed = side === 'left' ? startWidth + delta : startWidth - delta
+      const otherWidth = side === 'left' && rightPanelOpen ? rightWidth : side === 'right' ? leftWidth : 0
+      const viewportMax = window.innerWidth - otherWidth - 430
+      update(Math.min(hardMax, Math.max(min, Math.min(proposed, viewportMax))))
+    }
+    const stop = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+      window.removeEventListener('pointercancel', stop)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+    window.addEventListener('pointercancel', stop)
+  }
+
+  const toggleOutputPanel = () => {
+    if (window.innerWidth < 1280) {
+      setRightPanelOpen(true)
+      setOutputMobileOpen(true)
+      return
+    }
+    setRightPanelOpen((open) => !open)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -253,13 +307,14 @@ export default function ChatPage({ onNavigate }) {
 
   const sidebarDisabled = historyLoading || isTyping || actionLoading || conversationLoading
 
-  return <main className="flex h-[100dvh] gap-3 overflow-hidden bg-canvas p-3 sm:p-4">
-    <ConversationSidebar conversations={conversations} activeId={activeConversationId} loading={historyLoading} error={historyError} open={sidebarOpen} disabled={sidebarDisabled} onClose={() => setSidebarOpen(false)} onNew={createNewConversation} onSelect={openConversation} onDelete={deleteConversation} onPersonalize={() => onNavigate('/personalization')} />
+  return <main className="flex h-[100dvh] overflow-hidden bg-canvas p-3 sm:p-4">
+    <ConversationSidebar desktopWidth={leftWidth} conversations={conversations} activeId={activeConversationId} loading={historyLoading} error={historyError} open={sidebarOpen} disabled={sidebarDisabled} onClose={() => setSidebarOpen(false)} onNew={createNewConversation} onSelect={openConversation} onDelete={deleteConversation} onPersonalize={() => onNavigate('/personalization')} />
+    <ResizeDivider side="left" onPointerDown={(event) => startPanelResize('left', event)} />
 
     <section className="flex min-w-0 flex-1 flex-col gap-3 overflow-hidden">
       <header className="flex min-h-[72px] shrink-0 items-center justify-between rounded-[20px] border border-line bg-white px-3 shadow-[0_4px_20px_rgba(15,23,42,.04)] sm:px-6">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3"><button type="button" onClick={() => setSidebarOpen(true)} aria-label="Open conversation history" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line text-muted hover:bg-slate-50 hover:text-ink lg:hidden"><Menu size={18} /></button><BrandLogo className="h-10 w-10 rounded-xl border border-line bg-white p-0.5 shadow-sm" /><div className="min-w-0"><h1 className="truncate font-['Manrope'] text-sm font-bold text-ink">{conversations.find((item) => item.id === activeConversationId)?.title || 'ICU Tutor'}</h1><p className="mt-0.5 truncate text-[10px] text-muted">Your AI learning companion</p></div></div>
-        <div className="flex shrink-0 items-center gap-2"><button type="button" onClick={clearChat} disabled={!messages.length || isTyping || actionLoading || conversationLoading} aria-label="Clear visible chat" title="Clear chat without removing context" className="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-line bg-white px-3 text-xs font-semibold text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300"><Eraser size={15} /><span className="hidden md:inline">Clear chat</span></button><button onClick={() => onNavigate('/learn')} className="flex h-10 shrink-0 items-center gap-2 rounded-xl bg-brandblue px-3.5 text-xs font-semibold text-white transition hover:bg-[#426de8] sm:px-4"><BookOpen size={15} /><span className="hidden sm:inline">Learn with your files</span><span className="sm:hidden">Your files</span></button></div>
+        <div className="flex shrink-0 items-center gap-2"><button type="button" onClick={toggleOutputPanel} aria-label="Toggle output workspace" title="Text and code workspace" className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition ${rightPanelOpen ? 'border-brandblue/20 bg-brandblue/[.07] text-brandblue' : 'border-line bg-white text-muted hover:bg-slate-50 hover:text-ink'}`}><PanelRightOpen size={16} /></button><button type="button" onClick={clearChat} disabled={!messages.length || isTyping || actionLoading || conversationLoading} aria-label="Clear visible chat" title="Clear chat without removing context" className="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-line bg-white px-3 text-xs font-semibold text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300"><Eraser size={15} /><span className="hidden md:inline">Clear chat</span></button><button onClick={() => onNavigate('/learn')} className="flex h-10 shrink-0 items-center gap-2 rounded-xl bg-brandblue px-3.5 text-xs font-semibold text-white transition hover:bg-[#426de8] sm:px-4"><BookOpen size={15} /><span className="hidden sm:inline">Learn with your files</span><span className="sm:hidden">Your files</span></button></div>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-line bg-white shadow-[0_4px_20px_rgba(15,23,42,.04)]">
@@ -282,5 +337,6 @@ export default function ChatPage({ onNavigate }) {
       </div>
       </div>
     </section>
+    {rightPanelOpen ? <><ResizeDivider side="right" onPointerDown={(event) => startPanelResize('right', event)} /><TutorOutputPanel messages={messages} width={rightWidth} mobileOpen={outputMobileOpen} onCloseMobile={() => setOutputMobileOpen(false)} onCollapse={() => setRightPanelOpen(false)} /></> : null}
   </main>
 }

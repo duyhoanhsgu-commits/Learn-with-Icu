@@ -16,11 +16,11 @@ function relativeTime(value) {
   return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-export default function ConversationSidebar({ conversations, activeId, loading, error, open, disabled, onClose, onNew, onSelect, onDelete, onPersonalize }) {
+export default function ConversationSidebar({ conversations, activeId, loading, error, open, disabled, desktopWidth = 286, onClose, onNew, onSelect, onDelete, onPersonalize }) {
   const [menuId, setMenuId] = useState(null)
   return <>
     <button type="button" onClick={onClose} aria-label="Close conversation history" className={`fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm transition-opacity lg:hidden ${open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`} />
-    <aside className={`fixed bottom-3 left-3 top-3 z-50 flex w-[286px] shrink-0 flex-col rounded-[24px] border border-line bg-white px-4 py-5 text-ink shadow-[0_12px_36px_rgba(15,23,42,.12)] transition-transform duration-200 lg:static lg:z-auto lg:h-full lg:translate-x-0 lg:shadow-[0_4px_20px_rgba(15,23,42,.04)] ${open ? 'translate-x-0' : '-translate-x-[calc(100%+24px)]'}`}>
+    <aside style={{ '--conversation-sidebar-width': `${desktopWidth}px` }} className={`fixed bottom-3 left-3 top-3 z-50 flex w-[286px] shrink-0 flex-col rounded-[24px] border border-line bg-white px-4 py-5 text-ink shadow-[0_12px_36px_rgba(15,23,42,.12)] transition-transform duration-200 lg:static lg:z-auto lg:h-full lg:w-[var(--conversation-sidebar-width)] lg:translate-x-0 lg:shadow-[0_4px_20px_rgba(15,23,42,.04)] ${open ? 'translate-x-0' : '-translate-x-[calc(100%+24px)]'}`}>
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-3"><BrandLogo className="h-10 w-10 rounded-xl border border-line bg-white p-0.5 shadow-sm" /><div><p className="font-['Manrope'] text-[17px] font-bold">ICU Tutor</p><p className="mt-0.5 text-[11px] text-muted">Conversation space</p></div></div>
         <button type="button" onClick={onClose} aria-label="Close conversation history" className="rounded-xl p-2 text-muted hover:bg-slate-100 hover:text-ink lg:hidden"><X size={17} /></button>
