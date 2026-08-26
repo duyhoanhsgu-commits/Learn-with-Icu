@@ -73,6 +73,7 @@ export const conversationsApi = {
     body: JSON.stringify({ title: 'New conversation' }),
   }),
   get: (conversationId) => conversationRequest(`/chat/conversations/${conversationId}`),
+  compact: (conversationId) => conversationRequest(`/chat/conversations/${conversationId}/compact`, { method: 'POST' }),
   remove: (conversationId) => conversationRequest(`/chat/conversations/${conversationId}`, { method: 'DELETE' }),
 }
 

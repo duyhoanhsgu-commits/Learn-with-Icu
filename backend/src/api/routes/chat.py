@@ -10,11 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.storage.postgres import get_db_session, ChatConversation, ChatMessage
 from src.agent import agent_graph
 from src.agent.context import (
+    CONTEXT_INPUT_TOKEN_BUDGET,
+    CONTEXT_WINDOW_TOKEN_LIMIT,
     PersonalContext,
-    RECENT_MESSAGE_LIMIT,
     SpaceNotFoundError,
     personal_context_service,
     space_context_memory,
+    context_builder,
 )
 from src.agent.research import ResearchState, research_graph
 from src.agent.router import route_agent
@@ -24,11 +26,14 @@ from src.api.schemas import (
     ChatQueryRequest,
     ChatQueryResponse,
     ConversationCreate,
+    ConversationCompactResponse,
     ConversationDetailResponse,
     ConversationMessageResponse,
     ConversationResponse,
+    ContextWindowItem,
     GeneralChatRequest,
 )
+from src.rag.generator import generator
 
 router = APIRouter(prefix="/chat", tags=["Chat & Q&A"])
 
@@ -75,18 +80,28 @@ async def load_recent_history(
             status_code=409,
             detail="Conversation does not belong to this chat type or learning space.",
         )
+    query = select(ChatMessage).where(ChatMessage.session_id == session_id)
+    if conversation.context_compacted_at:
+        query = query.where(ChatMessage.created_at > conversation.context_compacted_at)
     result = await db.execute(
-        select(ChatMessage)
-        .where(ChatMessage.session_id == session_id)
-        .order_by(ChatMessage.created_at.desc())
-        .limit(RECENT_MESSAGE_LIMIT)
+        query
+        .order_by(ChatMessage.created_at.asc())
     )
-    messages = list(reversed(result.scalars().all()))
-    return [
+    messages = result.scalars().all()
+    history = [
         {"role": message.role, "content": message.content}
         for message in messages
         if message.role in {"user", "assistant"}
     ]
+    if conversation.context_summary:
+        history.insert(0, {
+            "role": "assistant",
+            "content": (
+                "Summary of the conversation before the current context window:\n\n"
+                f"{conversation.context_summary}"
+            ),
+        })
+    return context_builder.recent_messages(history, CONTEXT_INPUT_TOKEN_BUDGET)
 
 
 async def persist_exchange(
@@ -182,6 +197,33 @@ async def get_conversation(
             sources=stored_sources.get("sources", []) if isinstance(stored_sources, dict) else [],
             created_at=message.created_at,
         ))
+    summary_content = (
+        "Summary of the conversation before the current context window:\n\n"
+        f"{conversation.context_summary}"
+        if conversation.context_summary else ""
+    )
+    active_context = context_builder.recent_messages([
+        *([{"role": "assistant", "content": summary_content}] if summary_content else []),
+        *[
+            {"role": message.role, "content": message.content}
+            for message in messages
+            if message.role in {"user", "assistant"}
+            and (
+                conversation.context_compacted_at is None
+                or message.created_at > conversation.context_compacted_at
+            )
+        ],
+    ], CONTEXT_INPUT_TOKEN_BUDGET)
+    context_items = [
+        ContextWindowItem(
+            role=message["role"],
+            content=message["content"],
+            token_count=context_builder.count_message_tokens(message),
+            kind="summary" if summary_content and message["content"] == summary_content else "message",
+        )
+        for message in active_context
+    ]
+
     return ConversationDetailResponse.model_validate({
         "id": conversation.id,
         "title": conversation.title,
@@ -190,7 +232,83 @@ async def get_conversation(
         "created_at": conversation.created_at,
         "updated_at": conversation.updated_at,
         "messages": messages,
+        "context_token_count": context_builder.count_messages_tokens(active_context),
+        "context_token_limit": CONTEXT_WINDOW_TOKEN_LIMIT,
+        "context_can_compact": any(
+            message.role in {"user", "assistant"}
+            and (
+                conversation.context_compacted_at is None
+                or message.created_at > conversation.context_compacted_at
+            )
+            for message in messages
+        ),
+        "context_items": context_items,
     })
+
+
+@router.post(
+    "/conversations/{conversation_id}/compact",
+    response_model=ConversationCompactResponse,
+)
+async def compact_conversation_context(
+    conversation_id: str,
+    db: AsyncSession = Depends(get_db_session),
+):
+    conversation = await db.get(ChatConversation, conversation_id)
+    if not conversation or conversation.chat_type != "general":
+        raise HTTPException(status_code=404, detail="Conversation not found.")
+
+    # Use the start of compaction as the boundary so a concurrently-arriving
+    # message is never skipped from both the summary and the next window.
+    compact_boundary = datetime.now(timezone.utc)
+    history = await load_recent_history(
+        db,
+        conversation_id,
+        chat_type="general",
+        space_id=conversation.space_id,
+    )
+    new_message_count = len(history) - (1 if conversation.context_summary else 0)
+    if new_message_count <= 0:
+        raise HTTPException(status_code=400, detail="There is no new context to summarize.")
+
+    summary = await generator.generate_general_response(
+        query=(
+            "Compact the conversation context above into a concise working memory. "
+            "Preserve the user's goals, preferences, established facts, decisions, "
+            "important explanations, unresolved questions, and next steps. Do not add "
+            "new information. Return only the structured summary."
+        ),
+        history=history,
+    )
+    summary = summary.strip()
+    if not summary:
+        raise HTTPException(status_code=502, detail="Could not summarize the context.")
+
+    conversation.context_summary = summary
+    conversation.context_compacted_at = compact_boundary
+    conversation.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+
+    summary_message = {
+        "role": "assistant",
+        "content": (
+            "Summary of the conversation before the current context window:\n\n"
+            f"{summary}"
+        ),
+    }
+    return ConversationCompactResponse(
+        conversation_id=conversation_id,
+        summary=summary,
+        context_token_count=context_builder.count_messages_tokens([summary_message]),
+        context_token_limit=CONTEXT_WINDOW_TOKEN_LIMIT,
+        context_can_compact=False,
+        context_items=[ContextWindowItem(
+            role="assistant",
+            content=summary_message["content"],
+            token_count=context_builder.count_message_tokens(summary_message),
+            kind="summary",
+        )],
+    )
 
 
 @router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)

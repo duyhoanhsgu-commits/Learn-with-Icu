@@ -1,10 +1,46 @@
 from typing import Any
 
-RECENT_MESSAGE_LIMIT = 20
+try:
+    import tiktoken
+except ImportError:  # Keep local tooling usable before dependencies are installed.
+    tiktoken = None
+
+from src.core.config import settings
+
+CONTEXT_WINDOW_TOKEN_LIMIT = 128_000
+CONTEXT_OUTPUT_TOKEN_RESERVE = 8_000
+CONTEXT_INPUT_TOKEN_BUDGET = CONTEXT_WINDOW_TOKEN_LIMIT - CONTEXT_OUTPUT_TOKEN_RESERVE
 
 
 class AgentContextBuilder:
     """Build ordered LLM messages from already-authorized context inputs."""
+
+    def __init__(self) -> None:
+        self._encoding = None
+        if tiktoken is not None:
+            try:
+                self._encoding = tiktoken.encoding_for_model(settings.LLM_MODEL_NAME)
+            except KeyError:
+                self._encoding = tiktoken.get_encoding("o200k_base")
+
+    def count_text_tokens(self, value: str) -> int:
+        if self._encoding is not None:
+            return len(self._encoding.encode(value))
+        return max(1, (len(value) + 3) // 4) if value else 0
+
+    def count_message_tokens(self, message: dict[str, Any]) -> int:
+        content = message.get("content", "")
+        if isinstance(content, list):
+            content = " ".join(
+                part.get("text", "") if isinstance(part, dict) else str(part)
+                for part in content
+            )
+        return 4 + self.count_text_tokens(str(message.get("role", ""))) + self.count_text_tokens(str(content))
+
+    def count_messages_tokens(self, messages: list[dict[str, Any]] | None) -> int:
+        if not messages:
+            return 0
+        return 3 + sum(self.count_message_tokens(message) for message in messages)
 
     @staticmethod
     def _fixed_context_message(fixed_context: str | None) -> dict[str, str] | None:
@@ -51,17 +87,37 @@ class AgentContextBuilder:
             ),
         }
 
-    @staticmethod
     def recent_messages(
+        self,
         messages: list[dict[str, str]] | None,
+        token_budget: int = CONTEXT_INPUT_TOKEN_BUDGET,
     ) -> list[dict[str, str]]:
         valid: list[dict[str, str]] = []
-        for message in (messages or [])[-RECENT_MESSAGE_LIMIT:]:
+        for message in messages or []:
             role = message.get("role")
             content = message.get("content", "").strip()
             if role in {"user", "assistant"} and content:
                 valid.append({"role": role, "content": content})
-        return valid
+
+        selected: list[dict[str, str]] = []
+        used = 3
+        for message in reversed(valid):
+            message_tokens = self.count_message_tokens(message)
+            if used + message_tokens <= token_budget:
+                selected.append(message)
+                used += message_tokens
+                continue
+
+            remaining = token_budget - used - 8
+            if remaining > 0 and self._encoding is not None:
+                encoded = self._encoding.encode(message["content"])
+                clipped = self._encoding.decode(encoded[-remaining:])
+                selected.append({
+                    "role": message["role"],
+                    "content": f"[Earlier content truncated]\n{clipped}",
+                })
+            break
+        return list(reversed(selected))
 
     def build_messages(
         self,
@@ -85,8 +141,14 @@ class AgentContextBuilder:
         retrieved_message = self._retrieved_context_message(retrieved_context)
         if retrieved_message:
             messages.append(retrieved_message)
-        messages.extend(self.recent_messages(recent_messages))
-        messages.append({"role": "user", "content": query})
+        query_message = {"role": "user", "content": query}
+        reserved_messages = [*messages, query_message]
+        history_budget = max(
+            0,
+            CONTEXT_INPUT_TOKEN_BUDGET - self.count_messages_tokens(reserved_messages),
+        )
+        messages.extend(self.recent_messages(recent_messages, history_budget))
+        messages.append(query_message)
         return messages
 
 

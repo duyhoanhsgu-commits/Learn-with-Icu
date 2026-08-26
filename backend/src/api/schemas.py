@@ -155,8 +155,28 @@ class ConversationMessageResponse(BaseModel):
     created_at: datetime
 
 
+class ContextWindowItem(BaseModel):
+    role: str
+    content: str
+    token_count: int
+    kind: Literal["summary", "message"] = "message"
+
+
 class ConversationDetailResponse(ConversationResponse):
     messages: List[ConversationMessageResponse]
+    context_token_count: int = 0
+    context_token_limit: int = 128_000
+    context_can_compact: bool = False
+    context_items: List[ContextWindowItem] = Field(default_factory=list)
+
+
+class ConversationCompactResponse(BaseModel):
+    conversation_id: str
+    summary: str
+    context_token_count: int = 0
+    context_token_limit: int = 128_000
+    context_can_compact: bool = False
+    context_items: List[ContextWindowItem] = Field(default_factory=list)
 
 
 # --- Learning Tool Schemas ---

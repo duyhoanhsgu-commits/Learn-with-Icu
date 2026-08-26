@@ -110,6 +110,10 @@ class ChatConversation(Base):
     title: Mapped[str] = mapped_column(String, default="New conversation", nullable=False)
     chat_type: Mapped[str] = mapped_column(String, default="general", index=True, nullable=False)
     space_id: Mapped[str | None] = mapped_column(String, index=True, nullable=True)
+    context_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    context_compacted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -202,6 +206,14 @@ async def init_db() -> None:
         await conn.execute(text("UPDATE documents SET space_id = 'legacy-imports' WHERE space_id IS NULL"))
         await conn.execute(text("ALTER TABLE documents ALTER COLUMN space_id SET NOT NULL"))
         await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_space_id ON documents (space_id)"))
+        await conn.execute(text(
+            "ALTER TABLE chat_conversations "
+            "ADD COLUMN IF NOT EXISTS context_summary TEXT"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE chat_conversations "
+            "ADD COLUMN IF NOT EXISTS context_compacted_at TIMESTAMPTZ"
+        ))
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import MessageList from '../components/chat/MessageList'
 import SuggestedPrompts from '../components/chat/SuggestedPrompts'
 import ChatInput from '../components/chat/ChatInput'
+import ContextWindowBar from '../components/chat/ContextWindowBar'
 import ConversationSidebar from '../components/chat/ConversationSidebar'
 import BrandLogo from '../components/common/BrandLogo'
 import { generalPrompts } from '../data/mockData'
@@ -34,6 +35,11 @@ export default function ChatPage({ onNavigate }) {
   const [isTyping, setIsTyping] = useState(false)
   const [historyLoading, setHistoryLoading] = useState(true)
   const [conversationLoading, setConversationLoading] = useState(false)
+  const [contextTokenCount, setContextTokenCount] = useState(0)
+  const [contextTokenLimit, setContextTokenLimit] = useState(128000)
+  const [contextCanCompact, setContextCanCompact] = useState(false)
+  const [contextItems, setContextItems] = useState([])
+  const [contextSummarizing, setContextSummarizing] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [historyError, setHistoryError] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -70,10 +76,19 @@ export default function ChatPage({ onNavigate }) {
     setSidebarOpen(false)
     try {
       const detail = await conversationsApi.get(conversationId)
-      if (requestId === loadRequestRef.current) setMessages(detail.messages.map(toFrontendMessage))
+      if (requestId === loadRequestRef.current) {
+        setMessages(detail.messages.map(toFrontendMessage))
+        setContextTokenCount(detail.context_token_count ?? 0)
+        setContextTokenLimit(detail.context_token_limit ?? 128000)
+        setContextCanCompact(detail.context_can_compact ?? false)
+        setContextItems(detail.context_items ?? [])
+      }
     } catch (error) {
       if (requestId === loadRequestRef.current) {
         setMessages([])
+        setContextTokenCount(0)
+        setContextCanCompact(false)
+        setContextItems([])
         setHistoryError(error.message)
       }
     } finally {
@@ -91,6 +106,9 @@ export default function ChatPage({ onNavigate }) {
       setConversations((items) => [created, ...items])
       setActiveConversationId(created.id)
       setMessages([])
+      setContextTokenCount(0)
+      setContextCanCompact(false)
+      setContextItems([])
       setDraft('')
       setConversationLoading(false)
       setSidebarOpen(false)
@@ -117,6 +135,9 @@ export default function ChatPage({ onNavigate }) {
         ++loadRequestRef.current
         setActiveConversationId(null)
         setMessages([])
+        setContextTokenCount(0)
+        setContextCanCompact(false)
+        setContextItems([])
         setDraft('')
         if (remaining.length) await openConversation(remaining[0].id)
       }
@@ -127,8 +148,8 @@ export default function ChatPage({ onNavigate }) {
     }
   }
 
-  const send = async () => {
-    const content = draft.trim()
+  const send = async (preparedPrompt = '') => {
+    const content = (preparedPrompt || draft).trim()
     if (!content || isTyping || actionLoading || conversationLoading) return
     setDraft('')
     setIsTyping(true)
@@ -150,6 +171,16 @@ export default function ChatPage({ onNavigate }) {
         content: response.answer,
         sources: toFrontendSources(response.sources),
       }])
+      try {
+        const detail = await conversationsApi.get(conversationId)
+        setContextTokenCount(detail.context_token_count ?? 0)
+        setContextTokenLimit(detail.context_token_limit ?? 128000)
+        setContextCanCompact(detail.context_can_compact ?? true)
+        setContextItems(detail.context_items ?? [])
+      } catch {
+        // The answer is already saved; a failed meter refresh must not mark it as failed.
+        setContextCanCompact(true)
+      }
       const title = conversationTitle(content)
       const updatedAt = new Date().toISOString()
       setConversations((items) => {
@@ -161,6 +192,25 @@ export default function ChatPage({ onNavigate }) {
       setMessages((items) => [...items, { id: crypto.randomUUID(), role: 'error', content: `Unable to reach ICU Tutor: ${error.message}` }])
     } finally {
       setIsTyping(false)
+    }
+  }
+
+  const summarizeContext = async () => {
+    if (!activeConversationId || !contextCanCompact || isTyping || actionLoading || conversationLoading) return
+    setContextSummarizing(true)
+    setActionLoading(true)
+    setHistoryError('')
+    try {
+      const result = await conversationsApi.compact(activeConversationId)
+      setContextTokenCount(result.context_token_count ?? 0)
+      setContextTokenLimit(result.context_token_limit ?? 128000)
+      setContextCanCompact(result.context_can_compact ?? false)
+      setContextItems(result.context_items ?? [])
+    } catch (error) {
+      setHistoryError(error.message)
+    } finally {
+      setContextSummarizing(false)
+      setActionLoading(false)
     }
   }
 
@@ -189,7 +239,8 @@ export default function ChatPage({ onNavigate }) {
         </div>
 
       <div className="general-chat-bottom shrink-0 bg-white px-0 pb-1 pt-3 sm:px-4">
-        <SuggestedPrompts prompts={generalPrompts} onSelect={setDraft} variant="landing" />
+        {!messages.length && !conversationLoading ? <SuggestedPrompts prompts={generalPrompts} onSelect={setDraft} variant="landing" /> : null}
+        <ContextWindowBar tokenCount={contextTokenCount} tokenLimit={contextTokenLimit} contextItems={contextItems} canSummarize={contextCanCompact} disabled={isTyping || actionLoading || conversationLoading} summarizing={contextSummarizing} onSummary={summarizeContext} />
         <ChatInput value={draft} onChange={setDraft} onSubmit={send} disabled={isTyping || actionLoading || conversationLoading} placeholder="Ask ICU anything…" variant="general" />
       </div>
       </div>

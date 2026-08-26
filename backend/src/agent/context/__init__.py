@@ -1,5 +1,7 @@
 from src.agent.context.builder import (
-    RECENT_MESSAGE_LIMIT,
+    CONTEXT_INPUT_TOKEN_BUDGET,
+    CONTEXT_OUTPUT_TOKEN_RESERVE,
+    CONTEXT_WINDOW_TOKEN_LIMIT,
     AgentContextBuilder,
     context_builder,
 )
@@ -24,7 +26,9 @@ __all__ = [
     "AgentContextBuilder",
     "MAX_FIXED_CONTEXT_CHARS",
     "MAX_RELEVANT_MEMORIES",
-    "RECENT_MESSAGE_LIMIT",
+    "CONTEXT_INPUT_TOKEN_BUDGET",
+    "CONTEXT_OUTPUT_TOKEN_RESERVE",
+    "CONTEXT_WINDOW_TOKEN_LIMIT",
     "FixedContextTooLongError",
     "GlobalLongTermMemoryStore",
     "LongTermMemoryNotFoundError",
