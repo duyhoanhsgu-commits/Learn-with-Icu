@@ -33,9 +33,10 @@ function renumberCitationLinks(content = '') {
   })
 }
 
-export default function MessageBubble({ message, onSourceClick }) {
+export default function MessageBubble({ message, onSourceClick, variant = 'default' }) {
   const user = message.role === 'user'
   const error = message.role === 'error'
+  const general = variant === 'general'
   const sources = message.sources || []
   const markdown = renumberCitationLinks(linkifyPlainCitations(normalizeMathDelimiters(message.content), sources.length))
   const markdownComponents = {
@@ -50,5 +51,5 @@ export default function MessageBubble({ message, onSourceClick }) {
       return <a href={href} target="_blank" rel="noreferrer" {...props}>{children}</a>
     },
   }
-  return <div className={`flex gap-3 ${user ? 'flex-row-reverse' : ''}`}>{user || error ? <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-[9px] font-bold shadow-sm ${user ? 'bg-navy text-white' : 'bg-red-100 text-red-700'}`}>{user ? 'YOU' : '!'}</div> : <BrandLogo className="h-9 w-9 rounded-full border border-line bg-white p-1 shadow-sm" />}<div className={`min-w-0 max-w-[640px] rounded-2xl border text-sm shadow-sm ${user ? 'whitespace-pre-line rounded-tr-md border-brandblue/10 bg-brandblue/[.08] px-4 py-3 leading-7 text-ink' : error ? 'whitespace-pre-line border-red-100 bg-red-50 px-4 py-3 leading-7 text-red-700' : 'border-line bg-white px-4 py-3 text-slate-700'}`}>{user || error ? message.content : <div className="assistant-markdown"><ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]} components={markdownComponents}>{markdown}</ReactMarkdown></div>}</div></div>
+  return <div className={`flex gap-3 ${user ? 'flex-row-reverse' : ''}`}>{user || error ? <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-[9px] font-bold shadow-sm ${user ? 'bg-[#172033] text-white' : 'bg-red-100 text-red-700'}`}>{user ? 'YOU' : '!'}</div> : <BrandLogo className="h-9 w-9 rounded-full border border-line bg-white p-1 shadow-sm" />}<div className={`min-w-0 rounded-[18px] border text-sm ${general && !user ? 'max-w-[850px] px-6 py-5 sm:px-7 sm:py-6' : 'max-w-[640px] px-4 py-3'} ${user ? 'whitespace-pre-line rounded-tr-md border-brandblue/10 bg-brandblue/[.08] leading-7 text-ink' : error ? 'whitespace-pre-line border-red-100 bg-red-50 leading-7 text-red-700' : 'border-line bg-white text-slate-700'}`}>{user || error ? message.content : <div className="assistant-markdown"><ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]} components={markdownComponents}>{markdown}</ReactMarkdown></div>}</div></div>
 }
