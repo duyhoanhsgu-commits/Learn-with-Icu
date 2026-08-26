@@ -1,10 +1,10 @@
-import { BookOpen, Check, ChevronDown, FileText, ListFilter, PanelLeftClose, Plus } from 'lucide-react'
+import { BookOpen, Check, ChevronDown, FileText, ListFilter, PanelLeftClose, Plus, Settings, UserRound } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import DocumentViewer from './DocumentViewer'
 import FileItem from '../files/FileItem'
 import FileUploadButton from '../files/FileUploadButton'
 
-export default function DocumentsPanel({ spaces, activeSpace, onSelectSpace, onCreateSpace, onUpload, onDeleteFile, selectedFile, onSelectFile, sourceTarget, onAsk, onCollapse }) {
+export default function DocumentsPanel({ spaces, activeSpace, onSelectSpace, onCreateSpace, onUpload, onDeleteFile, selectedFile, onSelectFile, sourceTarget, onAsk, onCollapse, onPersonalize }) {
   const [spaceMenuOpen, setSpaceMenuOpen] = useState(false)
   const spaceMenuRef = useRef(null)
 
@@ -58,5 +58,6 @@ export default function DocumentsPanel({ spaces, activeSpace, onSelectSpace, onC
     <div role="region" aria-label="Documents in this learning space" tabIndex={0} className="document-list-scroll mt-3 min-h-0 flex-1 touch-pan-y space-y-2 overflow-y-auto overscroll-contain pb-2 pr-1 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brandblue/40">{activeSpace?.files.map((file) => <FileItem key={file.id} file={file} active={false} onClick={() => file.persisted && onSelectFile(file.id)} onDelete={file.persisted ? onDeleteFile : undefined} />)}{activeSpace && !activeSpace.files.length && <div className="grid h-full min-h-32 place-items-center px-5 text-center"><div><FileText size={25} className="mx-auto text-slate-300" /><p className="mt-3 text-xs font-semibold text-ink">No documents yet</p><p className="mt-1 text-[10px] leading-4 text-muted">Upload your first learning material below.</p></div></div>}</div>
 
     {activeSpace && <div id="workspace-upload-section" tabIndex={-1} className="mt-4 shrink-0"><FileUploadButton onUpload={onUpload} /><p className="mt-2 text-center text-[9px] text-muted">PDF, Word, Markdown, text or JSON</p></div>}
+    <button type="button" onClick={onPersonalize} className="mt-4 flex w-full shrink-0 items-center gap-3 rounded-2xl border border-line bg-slate-50/70 p-3 text-left transition hover:border-brandblue/20 hover:bg-brandblue/[.04]"><span className="grid h-9 w-9 place-items-center rounded-xl bg-white text-brandblue shadow-sm ring-1 ring-line"><UserRound size={16} /></span><span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-ink">Cá nhân hóa</span><span className="mt-0.5 block text-[9px] text-muted">Learning preferences</span></span><Settings size={15} className="text-slate-400" /></button>
   </aside>
 }

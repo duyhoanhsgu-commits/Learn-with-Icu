@@ -1,4 +1,4 @@
-import { BookOpen, BrainCircuit, FileText, Lightbulb, LoaderCircle, Menu, Sparkles, UserRound } from 'lucide-react'
+import { BookOpen, BrainCircuit, FileText, Lightbulb, LoaderCircle, Menu, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import MessageList from '../components/chat/MessageList'
 import SuggestedPrompts from '../components/chat/SuggestedPrompts'
@@ -48,13 +48,6 @@ export default function ChatPage({ onNavigate }) {
         const items = await conversationsApi.list()
         if (cancelled) return
         setConversations(items)
-        if (items.length) {
-          const first = items[0]
-          setActiveConversationId(first.id)
-          setConversationLoading(true)
-          const detail = await conversationsApi.get(first.id)
-          if (!cancelled) setMessages(detail.messages.map(toFrontendMessage))
-        }
       } catch (error) {
         if (!cancelled) setHistoryError(error.message)
       } finally {
@@ -179,7 +172,7 @@ export default function ChatPage({ onNavigate }) {
     <section className="flex min-w-0 flex-1 flex-col gap-3 overflow-hidden">
       <header className="flex min-h-[72px] shrink-0 items-center justify-between rounded-[20px] border border-line bg-white px-3 shadow-[0_4px_20px_rgba(15,23,42,.04)] sm:px-6">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3"><button type="button" onClick={() => setSidebarOpen(true)} aria-label="Open conversation history" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line text-muted hover:bg-slate-50 hover:text-ink lg:hidden"><Menu size={18} /></button><BrandLogo className="h-10 w-10 rounded-xl border border-line bg-white p-0.5 shadow-sm" /><div className="min-w-0"><h1 className="truncate font-['Manrope'] text-sm font-bold text-ink">{conversations.find((item) => item.id === activeConversationId)?.title || 'ICU Tutor'}</h1><p className="mt-0.5 truncate text-[10px] text-muted">Your AI learning companion</p></div></div>
-        <div className="flex shrink-0 items-center gap-2"><button onClick={() => onNavigate('/personalization')} className="grid h-10 w-10 place-items-center rounded-xl border border-line bg-white text-muted transition hover:border-brandblue/30 hover:bg-brandblue/[.05] hover:text-brandblue sm:flex sm:w-auto sm:gap-2 sm:px-3" aria-label="Cá nhân hóa"><UserRound size={16} /><span className="hidden text-xs font-semibold sm:inline">Cá nhân hóa</span></button><button onClick={() => onNavigate('/learn')} className="flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#172033] px-3.5 text-xs font-semibold text-white transition hover:bg-[#24314a] sm:px-4"><BookOpen size={15} /><span className="hidden sm:inline">Learn with your files</span><span className="sm:hidden">Your files</span></button></div>
+        <div className="flex shrink-0 items-center gap-2"><button onClick={() => onNavigate('/learn')} className="flex h-10 shrink-0 items-center gap-2 rounded-xl bg-brandblue px-3.5 text-xs font-semibold text-white transition hover:bg-[#426de8] sm:px-4"><BookOpen size={15} /><span className="hidden sm:inline">Learn with your files</span><span className="sm:hidden">Your files</span></button></div>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-line bg-white shadow-[0_4px_20px_rgba(15,23,42,.04)]">
