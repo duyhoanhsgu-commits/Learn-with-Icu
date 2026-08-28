@@ -63,6 +63,20 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-
 .icu-soft-shadow { box-shadow: var(--icu-shadow); }
 .icu-panel { border-color: var(--icu-border); background: var(--icu-surface); }
 .general-chat-bottom { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+.conversation-sidebar-responsive { width: min(286px, calc(100vw - 24px)); }
+.artifact-panel-responsive { width: min(520px, calc(100vw - 24px)); }
+
+@media (min-width: 1024px) {
+  .conversation-sidebar-responsive {
+    width: clamp(240px, var(--conversation-sidebar-width), min(30vw, 420px));
+  }
+}
+
+@media (min-width: 1280px) {
+  .artifact-panel-responsive {
+    width: clamp(300px, var(--tutor-output-width), min(38vw, 560px));
+  }
+}
 .general-hero-glow {
   background: radial-gradient(circle, rgba(255, 107, 0, .09), transparent 68%);
   filter: blur(55px);

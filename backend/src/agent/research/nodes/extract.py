@@ -151,7 +151,17 @@ class EvidenceExtractor:
                 "research_question": candidate.research_question,
                 "source_type": source.get("source_type", "web"),
             }
-            for key in ("url", "document_id", "chunk_id", "chunk_index", "score"):
+            for key in (
+                "url",
+                "document_id",
+                "chunk_id",
+                "chunk_index",
+                "space_id",
+                "score",
+                "relevance_score",
+                "source_quality_score",
+                "retrieval_methods",
+            ):
                 if source.get(key) is not None:
                     item[key] = source[key]
             evidence.append(item)

@@ -2,24 +2,39 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from src.agent.context import context_builder
+from src.agent.research.config import research_settings
+from src.agent.research.models import ResearchQuestion
 from src.agent.research.prompts import PLANNER_SYSTEM_PROMPT, PLANNER_USER_PROMPT
 from src.agent.research.state import ResearchState
 from src.core.config import settings
 from src.core.logging import logger
 
-MIN_RESEARCH_QUESTIONS = 3
-MAX_RESEARCH_QUESTIONS = 6
+MIN_RESEARCH_QUESTIONS = research_settings.min_questions
+MAX_RESEARCH_QUESTIONS = research_settings.max_questions
 
 
 class ResearchPlan(BaseModel):
-    research_questions: list[str] = Field(
-        min_length=MIN_RESEARCH_QUESTIONS,
-        max_length=MAX_RESEARCH_QUESTIONS,
-    )
-    search_queries: list[str] = Field(
-        min_length=MIN_RESEARCH_QUESTIONS,
-        max_length=MAX_RESEARCH_QUESTIONS,
-    )
+    research_questions: list[str] = Field(default_factory=list)
+    search_queries: list[str] = Field(default_factory=list)
+    questions: list[ResearchQuestion] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def expand_structured_questions(cls, data):
+        if not isinstance(data, dict) or not data.get("questions"):
+            return data
+        result = dict(data)
+        if "research_questions" not in result:
+            result["research_questions"] = [
+                item.question if isinstance(item, ResearchQuestion) else item.get("question", "")
+                for item in result["questions"]
+            ]
+        if "search_queries" not in result:
+            result["search_queries"] = [
+                item.search_query if isinstance(item, ResearchQuestion) else item.get("search_query", "")
+                for item in result["questions"]
+            ]
+        return result
 
     @field_validator("research_questions", "search_queries")
     @classmethod
@@ -42,6 +57,23 @@ class ResearchPlan(BaseModel):
             raise ValueError("A research plan must contain 3 to 6 unique search queries.")
         if len(self.research_questions) != len(self.search_queries):
             raise ValueError("Each research question must have one search query.")
+        if not self.questions:
+            default_types = ["background", "mechanism", "limitation"]
+            self.questions = [
+                ResearchQuestion(
+                    id=f"rq_{index + 1}",
+                    question=question,
+                    type=default_types[index] if index < len(default_types) else "evidence",
+                    priority=min(5, index + 1),
+                    search_query=self.search_queries[index],
+                )
+                for index, question in enumerate(self.research_questions)
+            ]
+        if len(self.questions) != len(self.research_questions):
+            raise ValueError("Structured questions must match the compatibility fields.")
+        ids = {item.id for item in self.questions}
+        if len(ids) != len(self.questions):
+            raise ValueError("Research question IDs must be unique.")
         return self
 
 
@@ -67,6 +99,29 @@ class ResearchPlanner:
                 subject,
                 f"{subject} mechanism evidence",
                 f"{subject} use cases tradeoffs cost",
+            ],
+            questions=[
+                ResearchQuestion(
+                    id="rq_1",
+                    question=subject,
+                    type="background",
+                    priority=1,
+                    search_query=subject,
+                ),
+                ResearchQuestion(
+                    id="rq_2",
+                    question=f"What mechanisms and evidence are most relevant to: {subject}",
+                    type="mechanism",
+                    priority=2,
+                    search_query=f"{subject} mechanism evidence",
+                ),
+                ResearchQuestion(
+                    id="rq_3",
+                    question=f"What practical trade-offs, limitations, and costs apply to: {subject}",
+                    type="limitation",
+                    priority=3,
+                    search_query=f"{subject} use cases tradeoffs cost",
+                ),
             ],
         )
 
@@ -110,6 +165,7 @@ async def planner_node(state: ResearchState, planner: ResearchPlanner) -> Resear
         history=state.history,
     )
     state.research_questions = plan.research_questions
+    state.research_plan = plan.questions
     state.search_queries = plan.search_queries
     state.query_question_map = dict(zip(plan.search_queries, plan.research_questions))
     return state

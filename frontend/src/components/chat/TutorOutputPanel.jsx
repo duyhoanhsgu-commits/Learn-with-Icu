@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import hljs from 'highlight.js/lib/common'
+import Editor from 'react-simple-code-editor'
 import 'highlight.js/styles/github-dark.css'
 import 'katex/dist/katex.min.css'
 import {
@@ -36,15 +37,33 @@ function CodePreview({ content, language }) {
 }
 
 function SourceEditor({ value, language, onChange }) {
-  return <div className="relative h-full bg-[#111827]">
-    <textarea
+  const highlight = (source) => {
+    try {
+      if (language && hljs.getLanguage(language)) return hljs.highlight(source, { language }).value
+      return hljs.highlightAuto(source).value
+    } catch {
+      return source.replace(/[&<>]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[character])
+    }
+  }
+
+  return <div className="h-full overflow-auto bg-[#111827]">
+    <Editor
       value={value}
-      onChange={(event) => onChange(event.target.value)}
+      onValueChange={onChange}
+      highlight={highlight}
+      padding={16}
+      tabSize={2}
+      insertSpaces
       aria-label={`Edit ${language || 'artifact'} source`}
-      autoCapitalize="off"
-      autoCorrect="off"
-      spellCheck={false}
-      className="h-full w-full resize-none border-0 bg-transparent p-4 font-mono text-[11px] leading-5 text-slate-100 outline-none selection:bg-brandblue/30"
+      textareaClassName="!outline-none !caret-[#ff8a1f] selection:!bg-brandblue/35"
+      preClassName="!m-0 !bg-transparent"
+      style={{
+        minHeight: '100%',
+        color: '#e2e8f0',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+        fontSize: 11,
+        lineHeight: '20px',
+      }}
     />
   </div>
 }
@@ -322,7 +341,7 @@ export default function TutorOutputPanel({ artifact, width, mobileOpen, onCloseM
 
   return <>
     <button type="button" onClick={onCloseMobile} aria-label="Close artifact panel" className={`fixed inset-0 z-40 bg-slate-950/35 backdrop-blur-sm xl:hidden ${mobileOpen ? 'block' : 'hidden'}`} />
-    <aside style={{ '--tutor-output-width': `${width}px` }} className={`fixed bottom-3 right-3 top-3 z-50 flex w-[min(520px,calc(100vw-24px))] flex-col overflow-hidden rounded-[18px] border border-line bg-white text-ink shadow-[0_12px_36px_rgba(15,23,42,.10)] transition-transform xl:static xl:z-auto xl:h-full xl:w-[var(--tutor-output-width)] xl:translate-x-0 xl:shadow-[var(--shadow-sm)] ${mobileOpen ? 'translate-x-0' : 'translate-x-[calc(100%+24px)]'}`}>
+    <aside style={{ '--tutor-output-width': `${width}px` }} className={`artifact-panel-responsive fixed bottom-3 right-3 top-3 z-50 flex w-[min(520px,calc(100vw-24px))] flex-col overflow-hidden rounded-[18px] border border-line bg-white text-ink shadow-[0_12px_36px_rgba(15,23,42,.10)] transition-transform xl:static xl:z-auto xl:h-full xl:translate-x-0 xl:shadow-[var(--shadow-sm)] ${mobileOpen ? 'translate-x-0' : 'translate-x-[calc(100%+24px)]'}`}>
       <header className="flex min-h-[72px] shrink-0 items-center justify-between gap-3 border-b border-line px-4">
         <div className="flex min-w-0 items-center gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brandblue/[.08] text-brandblue">{running ? <Play size={16} /> : <Icon size={16} />}</span><div className="min-w-0"><h2 className="truncate text-xs font-semibold">Artifact workspace</h2><p className="mt-0.5 truncate text-[9px] text-muted">{artifact ? `${running ? 'Running' : 'Previewing'} ${artifact.title}` : 'Contextual preview'}</p></div></div>
         <div className="flex shrink-0 items-center gap-1"><button type="button" onClick={copy} disabled={!artifact} aria-label="Copy artifact" className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[10px] font-semibold text-muted transition hover:bg-brandblue/[.06] hover:text-brandblue disabled:opacity-30">{copied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}{copied ? 'Copied' : 'Copy'}</button><button type="button" onClick={() => { onCloseMobile(); onCollapse() }} aria-label="Close artifact workspace" title="Close workspace" className="grid h-9 w-9 place-items-center rounded-xl text-muted hover:bg-slate-100 hover:text-ink"><PanelRightClose size={16} /></button></div>

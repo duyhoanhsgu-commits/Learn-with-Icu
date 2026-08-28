@@ -3,13 +3,15 @@ import urllib.parse
 from collections.abc import Callable
 from typing import Any
 
+from src.agent.research.config import research_settings
+from src.agent.research.nodes.source_ranker import SourceRanker
 from src.agent.research.state import ResearchState
 from src.agent.research.tools import fetch_url, search_results
 from src.core.logging import logger
 
-MAX_SEARCH_RESULTS_PER_QUERY = 5
-MAX_TOTAL_SOURCES = 10
-FOLLOW_UP_SOURCE_RESERVE = 3
+MAX_SEARCH_RESULTS_PER_QUERY = research_settings.max_web_results_per_query
+MAX_TOTAL_SOURCES = research_settings.max_web_sources
+FOLLOW_UP_SOURCE_RESERVE = research_settings.follow_up_source_reserve
 _TRACKING_PARAMETERS = {"fbclid", "gclid"}
 
 
@@ -36,16 +38,24 @@ class ResearchSearcher:
         self,
         search_fn: Callable[..., list[dict[str, str]]] = search_results,
         fetch_fn: Callable[[str], dict[str, str]] = fetch_url,
+        source_ranker: SourceRanker | None = None,
     ):
         self.search_fn = search_fn
         self.fetch_fn = fetch_fn
+        self.source_ranker = source_ranker or SourceRanker()
 
     async def run(self, state: ResearchState) -> ResearchState:
+        if state.query_understanding and not state.query_understanding.use_web_sources:
+            return state
         searched = {query.casefold() for query in state.searched_queries}
-        queries = list(dict.fromkeys(
-            query for query in state.search_queries
-            if query.strip() and query.casefold() not in searched
-        ))
+        queries: list[str] = []
+        pending: set[str] = set()
+        for query in state.search_queries:
+            normalized = " ".join(query.split()).strip()
+            key = normalized.casefold()
+            if normalized and key not in searched and key not in pending:
+                queries.append(normalized)
+                pending.add(key)
         remaining_capacity = MAX_TOTAL_SOURCES - len(state.web_sources)
         if not queries or remaining_capacity <= 0:
             return state
@@ -86,7 +96,8 @@ class ResearchSearcher:
                     "snippet": result.get("snippet", ""),
                     "search_query": query,
                     "research_questions": [research_question],
-                    "priority": (result_index, query_index),
+                    "search_rank": result_index,
+                    "query_rank": query_index,
                 }
 
         candidate_capacity = remaining_capacity
@@ -95,12 +106,18 @@ class ResearchSearcher:
                 1,
                 remaining_capacity - min(FOLLOW_UP_SOURCE_RESERVE, remaining_capacity - 1),
             )
-        candidate_list = sorted(
-            candidates.values(),
-            key=lambda item: item["priority"],
-        )[:candidate_capacity]
+        freshness = bool(
+            state.query_understanding
+            and state.query_understanding.needs_fresh_information
+        )
+        candidate_list = self.source_ranker.rank_candidates(
+            list(candidates.values()),
+            candidate_capacity,
+            freshness,
+        )
         for candidate in candidate_list:
-            candidate.pop("priority", None)
+            candidate.pop("search_rank", None)
+            candidate.pop("query_rank", None)
         state.progress(
             "research.read",
             "Reading candidate sources",

@@ -65,6 +65,23 @@ export default function ChatPage({ onNavigate }) {
   useEffect(() => { localStorage.setItem('icu-tutor-left-width', String(leftWidth)) }, [leftWidth])
   useEffect(() => { localStorage.setItem('icu-tutor-output-width', String(rightWidth)) }, [rightWidth])
 
+  useEffect(() => {
+    const sidebarDesktop = window.matchMedia('(min-width: 1024px)')
+    const outputDesktop = window.matchMedia('(min-width: 1280px)')
+    const syncResponsivePanels = () => {
+      if (sidebarDesktop.matches) setSidebarOpen(false)
+      if (outputDesktop.matches) setOutputMobileOpen(false)
+      else if (rightPanelOpen) setOutputMobileOpen(true)
+    }
+    syncResponsivePanels()
+    sidebarDesktop.addEventListener('change', syncResponsivePanels)
+    outputDesktop.addEventListener('change', syncResponsivePanels)
+    return () => {
+      sidebarDesktop.removeEventListener('change', syncResponsivePanels)
+      outputDesktop.removeEventListener('change', syncResponsivePanels)
+    }
+  }, [rightPanelOpen])
+
   const startPanelResize = (side, event) => {
     event.preventDefault()
     const startX = event.clientX
@@ -335,14 +352,14 @@ export default function ChatPage({ onNavigate }) {
     window.setTimeout(() => document.getElementById('icu-chat-input')?.focus(), 0)
   }
 
-  return <main className="flex h-[100dvh] overflow-hidden bg-canvas p-3 sm:p-4">
+  return <main className="icu-tutor-page flex h-[100dvh] overflow-hidden bg-canvas p-2.5 sm:p-4">
     <ConversationSidebar desktopWidth={leftWidth} conversations={conversations} activeId={activeConversationId} loading={historyLoading} error={historyError} open={sidebarOpen} disabled={sidebarDisabled} onClose={() => setSidebarOpen(false)} onNew={createNewConversation} onSelect={openConversation} onDelete={deleteConversation} onPersonalize={() => onNavigate('/personalization')} />
     <ResizeDivider side="left" onPointerDown={(event) => startPanelResize('left', event)} />
 
     <section className="flex min-w-0 flex-1 flex-col gap-3 overflow-hidden">
       <header className="flex min-h-[72px] shrink-0 items-center justify-between rounded-[18px] border border-line bg-white px-3 shadow-[var(--shadow-sm)] sm:px-6">
-        <div className="flex min-w-0 items-center gap-2 sm:gap-3"><button type="button" onClick={() => setSidebarOpen(true)} aria-label="Open conversation history" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line text-muted hover:bg-slate-50 hover:text-ink lg:hidden"><Menu size={18} /></button><BrandLogo className="h-10 w-10 rounded-xl border border-line bg-white p-0.5 shadow-sm" /><div className="min-w-0"><h1 className="truncate font-['Manrope'] text-sm font-bold text-ink">{conversations.find((item) => item.id === activeConversationId)?.title || 'ICU Tutor'}</h1><p className="mt-0.5 truncate text-[10px] text-muted">Your AI learning companion</p></div></div>
-        <div className="flex shrink-0 items-center gap-2"><button type="button" onClick={toggleOutputPanel} aria-label="Toggle artifact workspace" title="Artifact preview workspace" className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition ${rightPanelOpen ? 'border-brandblue/20 bg-brandblue/[.07] text-brandblue' : 'border-line bg-white text-muted hover:bg-slate-50 hover:text-ink'}`}><PanelRightOpen size={16} /></button><button type="button" onClick={clearChat} disabled={!messages.length || isTyping || actionLoading || conversationLoading} aria-label="Clear visible chat" title="Clear chat without removing context" className="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-line bg-white px-3 text-xs font-semibold text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300"><Eraser size={15} /><span className="hidden md:inline">Clear chat</span></button><button onClick={() => onNavigate('/learn')} className="icu-primary-action flex h-10 shrink-0 items-center gap-2 rounded-xl px-3.5 text-xs font-semibold text-white transition sm:px-4"><BookOpen size={15} /><span className="hidden sm:inline">Learn with your files</span><span className="sm:hidden">Your files</span></button></div>
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3"><button type="button" onClick={() => setSidebarOpen(true)} aria-label="Open conversation history" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line text-muted hover:bg-slate-50 hover:text-ink lg:hidden"><Menu size={18} /></button><BrandLogo className="hidden h-10 w-10 rounded-xl border border-line bg-white p-0.5 shadow-sm sm:block" /><div className="min-w-0"><h1 className="truncate font-['Manrope'] text-sm font-bold text-ink">{conversations.find((item) => item.id === activeConversationId)?.title || 'ICU Tutor'}</h1><p className="mt-0.5 hidden truncate text-[10px] text-muted sm:block">Your AI learning companion</p></div></div>
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2"><button type="button" onClick={toggleOutputPanel} aria-label="Toggle artifact workspace" title="Artifact preview workspace" className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition ${rightPanelOpen ? 'border-brandblue/20 bg-brandblue/[.07] text-brandblue' : 'border-line bg-white text-muted hover:bg-slate-50 hover:text-ink'}`}><PanelRightOpen size={16} /></button><button type="button" onClick={clearChat} disabled={!messages.length || isTyping || actionLoading || conversationLoading} aria-label="Clear visible chat" title="Clear chat without removing context" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line bg-white text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300 md:flex md:w-auto md:gap-2 md:px-3 md:text-xs md:font-semibold"><Eraser size={15} /><span className="hidden md:inline">Clear chat</span></button><button onClick={() => onNavigate('/learn')} aria-label="Learn with your files" className="icu-primary-action grid h-10 w-10 shrink-0 place-items-center rounded-xl text-xs font-semibold text-white transition sm:flex sm:w-auto sm:gap-2 sm:px-4"><BookOpen size={15} /><span className="hidden sm:inline">Learn with your files</span></button></div>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[18px] border border-line bg-white shadow-[var(--shadow-sm)]">

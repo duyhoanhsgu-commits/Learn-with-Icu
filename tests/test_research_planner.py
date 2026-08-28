@@ -49,6 +49,22 @@ async def test_research_planner_returns_structured_questions_and_queries():
 
 
 @pytest.mark.asyncio
+async def test_research_planner_accepts_new_structured_schema():
+    payload = {"questions": [
+        {"id": "rq_1", "question": "What problem was solved?", "type": "background", "priority": 1, "search_query": "transformer original problem"},
+        {"id": "rq_2", "question": "How does attention work?", "type": "mechanism", "priority": 2, "search_query": "self attention mechanism"},
+        {"id": "rq_3", "question": "What evidence supports it?", "type": "evidence", "priority": 3, "search_query": "transformer paper experiments"},
+    ]}
+    planner = ResearchPlanner(client=fake_client(payload))
+
+    plan = await planner.plan("Research Attention Is All You Need")
+
+    assert [item.id for item in plan.questions] == ["rq_1", "rq_2", "rq_3"]
+    assert plan.research_questions[1] == "How does attention work?"
+    assert plan.search_queries[2] == "transformer paper experiments"
+
+
+@pytest.mark.asyncio
 async def test_research_planner_failure_uses_bounded_fallback():
     planner = ResearchPlanner(client=fake_client(error=RuntimeError("bad LLM")))
 

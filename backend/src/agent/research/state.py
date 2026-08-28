@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from collections.abc import Callable
 from typing import Any, Optional
 
+from src.agent.research.models import QueryUnderstanding, ResearchQuestion
+
 
 @dataclass
 class ResearchState:
@@ -12,12 +14,16 @@ class ResearchState:
     fixed_context: Optional[str] = None
     memory_context: Optional[str] = None
     history: list[dict[str, str]] = field(default_factory=list)
+    query_understanding: Optional[QueryUnderstanding] = None
+    research_plan: list[ResearchQuestion] = field(default_factory=list)
     research_questions: list[str] = field(default_factory=list)
     search_queries: list[str] = field(default_factory=list)
     searched_queries: list[str] = field(default_factory=list)
     query_question_map: dict[str, str] = field(default_factory=dict)
+    question_query_map: dict[str, list[str]] = field(default_factory=dict)
     web_sources: list[dict[str, Any]] = field(default_factory=list)
     local_sources: list[dict[str, Any]] = field(default_factory=list)
+    ranked_sources: list[dict[str, Any]] = field(default_factory=list)
     evidence: list[dict[str, Any]] = field(default_factory=list)
     iteration: int = 0
     enough_evidence: bool = False
