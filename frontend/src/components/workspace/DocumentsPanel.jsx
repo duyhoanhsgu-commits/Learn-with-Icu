@@ -27,9 +27,9 @@ export default function DocumentsPanel({ spaces, activeSpace, onSelectSpace, onC
     if (name) onCreateSpace(name)
   }
 
-  if (selectedFile) return <section className="relative h-full min-w-0 overflow-hidden rounded-[22px] border border-line bg-white shadow-[0_4px_20px_rgba(15,23,42,.04)]"><DocumentViewer file={selectedFile} sourceTarget={sourceTarget} onExit={() => onSelectFile(null)} onAsk={onAsk} onCollapse={onCollapse} /></section>
+  if (selectedFile) return <section className="relative h-full min-w-0 overflow-hidden rounded-[18px] border border-line bg-white shadow-[var(--shadow-sm)]"><DocumentViewer file={selectedFile} sourceTarget={sourceTarget} onExit={() => onSelectFile(null)} onAsk={onAsk} onCollapse={onCollapse} /></section>
 
-  return <aside id="workspace-spaces-section" tabIndex={-1} className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[22px] border border-line bg-white px-4 py-5 text-ink shadow-[0_4px_20px_rgba(15,23,42,.04)] sm:px-5">
+  return <aside id="workspace-spaces-section" tabIndex={-1} className="flex h-full min-h-0 min-w-0 flex-col overflow-y-auto rounded-[18px] border border-line bg-white px-4 py-5 text-ink shadow-[var(--shadow-sm)] sm:px-5">
     <div className="flex items-center justify-between">
       <div><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-muted">Your library</p><h2 className="mt-1 font-['Manrope'] text-base font-bold">Learning Spaces</h2></div>
       <div className="flex items-center gap-1.5"><button onClick={create} title="New learning space" aria-label="Create learning space" className="grid h-9 w-9 place-items-center rounded-xl border border-line bg-white text-muted transition hover:border-brandblue/30 hover:bg-brandblue/[.05] hover:text-brandblue"><Plus size={17} /></button>{onCollapse && <button onClick={onCollapse} title="Collapse library" aria-label="Collapse library panel" className="hidden h-9 w-9 place-items-center rounded-xl border border-line bg-white text-muted transition hover:border-brandblue/30 hover:bg-brandblue/[.05] hover:text-brandblue lg:grid"><PanelLeftClose size={17} /></button>}</div>

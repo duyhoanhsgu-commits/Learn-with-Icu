@@ -20,13 +20,13 @@ export default function ConversationSidebar({ conversations, activeId, loading, 
   const [menuId, setMenuId] = useState(null)
   return <>
     <button type="button" onClick={onClose} aria-label="Close conversation history" className={`fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm transition-opacity lg:hidden ${open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`} />
-    <aside style={{ '--conversation-sidebar-width': `${desktopWidth}px` }} className={`fixed bottom-3 left-3 top-3 z-50 flex w-[286px] shrink-0 flex-col rounded-[24px] border border-line bg-white px-4 py-5 text-ink shadow-[0_12px_36px_rgba(15,23,42,.12)] transition-transform duration-200 lg:static lg:z-auto lg:h-full lg:w-[var(--conversation-sidebar-width)] lg:translate-x-0 lg:shadow-[0_4px_20px_rgba(15,23,42,.04)] ${open ? 'translate-x-0' : '-translate-x-[calc(100%+24px)]'}`}>
+    <aside style={{ '--conversation-sidebar-width': `${desktopWidth}px` }} className={`fixed bottom-3 left-3 top-3 z-50 flex w-[286px] shrink-0 flex-col rounded-[18px] border border-line bg-white px-4 py-5 text-ink shadow-[0_12px_36px_rgba(15,23,42,.10)] transition-transform duration-200 lg:static lg:z-auto lg:h-full lg:w-[var(--conversation-sidebar-width)] lg:translate-x-0 lg:shadow-[var(--shadow-sm)] ${open ? 'translate-x-0' : '-translate-x-[calc(100%+24px)]'}`}>
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-3"><BrandLogo className="h-10 w-10 rounded-xl border border-line bg-white p-0.5 shadow-sm" /><div><p className="font-['Manrope'] text-[17px] font-bold">ICU Tutor</p><p className="mt-0.5 text-[11px] text-muted">Conversation space</p></div></div>
         <button type="button" onClick={onClose} aria-label="Close conversation history" className="rounded-xl p-2 text-muted hover:bg-slate-100 hover:text-ink lg:hidden"><X size={17} /></button>
       </div>
 
-      <button type="button" onClick={onNew} disabled={disabled} className="mt-6 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brandblue px-4 text-xs font-bold text-white transition hover:bg-[#426de8] disabled:cursor-not-allowed disabled:opacity-50"><Plus size={16} strokeWidth={2.5} />New chat</button>
+      <button type="button" onClick={onNew} disabled={disabled} className="icu-primary-action mt-6 flex h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-xs font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"><Plus size={16} strokeWidth={2.5} />New chat</button>
 
       <div className="mt-7 flex min-h-0 flex-1 flex-col">
         <div className="flex items-center justify-between px-2"><p className="text-[9px] font-bold uppercase tracking-[.18em] text-muted">Conversations</p><span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] text-muted">{conversations.length}</span></div>

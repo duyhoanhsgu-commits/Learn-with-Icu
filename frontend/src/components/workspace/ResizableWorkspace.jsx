@@ -2,9 +2,9 @@ import { BookOpen, BrainCircuit, Files, Network, Sparkles, Upload, X } from 'luc
 import { cloneElement, useEffect, useRef, useState } from 'react'
 
 const STORAGE_KEY = 'icu-workspace-layout'
-const LEFT_MIN = 260
+const LEFT_MIN = 240
 const LEFT_MAX = 440
-const RIGHT_MIN = 320
+const RIGHT_MIN = 280
 const RIGHT_MAX = 520
 const RAIL_WIDTH = 64
 const COLLAPSE_DRAG_DISTANCE = 36
@@ -13,7 +13,7 @@ const MIN_CENTER_WIDTH = 280
 const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value) || min))
 
 function loadLayout() {
-  const fallback = { leftWidth: 320, rightWidth: 420, leftCollapsed: false, rightCollapsed: false }
+  const fallback = { leftWidth: 280, rightWidth: 340, leftCollapsed: false, rightCollapsed: false }
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
     return {
@@ -48,12 +48,12 @@ function LeftRail({ onRestore }) {
     { icon: Files, section: 'documents', label: 'Open documents' },
     { icon: Upload, section: 'upload', label: 'Open upload' },
   ]
-  return <aside className="relative hidden h-full w-16 flex-col items-center gap-2 rounded-[22px] border border-line bg-white py-4 shadow-[0_4px_20px_rgba(15,23,42,.04)] lg:flex"><span className="absolute left-1/2 top-3 h-0.5 w-8 -translate-x-1/2 rounded-full bg-brandblue" />{buttons.map(({ icon: Icon, section, label }, index) => <button key={section} onClick={() => onRestore(section)} title={index === 0 ? 'Open library' : label} aria-label={label} className={`grid h-10 w-10 place-items-center rounded-xl transition ${index === 0 ? 'bg-brandblue/10 text-brandblue' : 'text-slate-400 hover:bg-slate-100 hover:text-ink'}`}><Icon size={17} /></button>)}</aside>
+  return <aside className="relative hidden h-full w-16 flex-col items-center gap-2 rounded-[18px] border border-line bg-white py-4 shadow-[var(--shadow-sm)] lg:flex"><span className="absolute left-1/2 top-3 h-0.5 w-8 -translate-x-1/2 rounded-full bg-brandblue" />{buttons.map(({ icon: Icon, section, label }, index) => <button key={section} onClick={() => onRestore(section)} title={index === 0 ? 'Open library' : label} aria-label={label} className={`grid h-10 w-10 place-items-center rounded-xl transition ${index === 0 ? 'bg-brandblue/10 text-brandblue' : 'text-slate-400 hover:bg-slate-100 hover:text-ink'}`}><Icon size={17} /></button>)}</aside>
 }
 
 function RightRail({ onRestore }) {
   const icons = [Sparkles, BrainCircuit, Network]
-  return <aside className="relative hidden h-full w-16 flex-col items-center gap-2 rounded-[22px] border border-line bg-white py-4 shadow-[0_4px_20px_rgba(15,23,42,.04)] lg:flex"><span className="absolute left-1/2 top-3 h-0.5 w-8 -translate-x-1/2 rounded-full bg-brandblue" />{icons.map((Icon, index) => <button key={index} onClick={onRestore} title="Open study tools" aria-label="Open study tools" className={`grid h-10 w-10 place-items-center rounded-xl transition ${index === 0 ? 'bg-brandblue/10 text-brandblue' : 'text-slate-400 hover:bg-slate-100 hover:text-ink'}`}><Icon size={17} /></button>)}</aside>
+  return <aside className="relative hidden h-full w-16 flex-col items-center gap-2 rounded-[18px] border border-line bg-white py-4 shadow-[var(--shadow-sm)] lg:flex"><span className="absolute left-1/2 top-3 h-0.5 w-8 -translate-x-1/2 rounded-full bg-brandblue" />{icons.map((Icon, index) => <button key={index} onClick={onRestore} title="Open study tools" aria-label="Open study tools" className={`grid h-10 w-10 place-items-center rounded-xl transition ${index === 0 ? 'bg-brandblue/10 text-brandblue' : 'text-slate-400 hover:bg-slate-100 hover:text-ink'}`}><Icon size={17} /></button>)}</aside>
 }
 
 export default function ResizableWorkspace({ left, center, right, mobilePane, onOpenMobilePane, onCloseMobilePane, leftUnbounded = false, leftRevealKey = null }) {

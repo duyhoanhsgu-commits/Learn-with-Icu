@@ -22,10 +22,10 @@ export const suggestedPrompts = [
 export const assistantReply = 'Think of recursion like opening a box that contains a smaller version of the same box.\n\nEach step solves a smaller version of the original problem.\n\nThe base case tells the function when to stop opening boxes.'
 
 export const generalPrompts = [
-  'Explain recursion simply',
-  'Teach me how neural networks work',
-  'Quiz me about Python',
   'Explain RAG step by step',
+  'What is a transformer model?',
+  'Quiz me about Python',
+  'Summarize this document',
 ]
 
 export const filePrompts = [

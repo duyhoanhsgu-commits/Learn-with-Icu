@@ -18,7 +18,6 @@ from src.agent.context import (
     space_context_memory,
     context_builder,
 )
-from src.agent.research import ResearchState, research_graph
 from src.agent.router import route_agent
 from src.agent.state import AgentState
 from src.rag.pipeline import rag_pipeline
@@ -35,9 +34,19 @@ from src.api.schemas import (
 )
 from src.rag.generator import generator
 from src.learner import learner_repository
-from src.tutor import tutor_service
 
 router = APIRouter(prefix="/chat", tags=["Chat & Q&A"])
+
+
+def stream_event(event_type: str, **payload) -> str:
+    return f"data: {json.dumps({'type': event_type, **payload}, ensure_ascii=False)}\n\n"
+
+
+async def stream_completed_answer(answer: str):
+    """Stream already-computed specialist answers through the same client contract."""
+    for word in answer.split(" "):
+        yield f"{word} "
+        await asyncio.sleep(0)
 
 
 def conversation_title(question: str) -> str:
@@ -435,6 +444,54 @@ async def general_chat(
     )
 
 
+@router.post("/general/stream")
+async def general_chat_stream(
+    request: GeneralChatRequest,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Stream general chat tokens and persist the completed exchange."""
+    if not request.question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+    personal_context = await load_personal_context(db, request.space_id, request.question)
+    history = await load_recent_history(
+        db,
+        request.session_id,
+        chat_type="general",
+        space_id=request.space_id,
+    )
+
+    async def event_generator():
+        chunks = []
+        try:
+            async for token in generator.generate_general_stream(
+                query=request.question,
+                history=history,
+                fixed_context=personal_context.fixed_context,
+                memory_context=personal_context.memory_context,
+            ):
+                chunks.append(token)
+                yield stream_event("token", token=token)
+            answer = "".join(chunks)
+            await persist_exchange(
+                db,
+                request.session_id,
+                request.question,
+                answer,
+                chat_type="general",
+                space_id=request.space_id,
+            )
+            yield stream_event("done", sources=[])
+        except Exception as exc:
+            await db.rollback()
+            yield stream_event("error", message=str(exc) or "Streaming response failed.")
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @router.post("/query", response_model=ChatQueryResponse)
 async def chat_query(
     request: ChatQueryRequest,
@@ -530,54 +587,73 @@ async def chat_stream(
     ))
 
     async def event_generator():
-        if route == "tutor":
-            result = await tutor_service.respond(
-                db=db,
-                learner_id=request.session_id,
-                space_id=request.space_id,
-                message=request.question,
-                history=history,
-                top_k=request.top_k,
-                fixed_context=personal_context.fixed_context,
-                memory_context=personal_context.memory_context,
-            )
-            yield result.answer
-            return
-        if route == "research":
-            queue: asyncio.Queue = asyncio.Queue()
-            research_state = ResearchState(
-                query=request.question,
-                space_id=request.space_id,
-                fixed_context=personal_context.fixed_context,
-                memory_context=personal_context.memory_context,
-                history=history,
-                progress_callback=queue.put_nowait,
-            )
-            task = asyncio.create_task(research_graph.run(research_state))
-            while not task.done() or not queue.empty():
-                try:
-                    event = await asyncio.wait_for(queue.get(), timeout=0.1)
-                    yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
-                except asyncio.TimeoutError:
-                    continue
-            try:
-                await task
-            except Exception:
-                error_event = {
-                    "type": "research.error",
-                    "message": "Research could not be completed.",
-                }
-                yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
-            return
-        async for token in rag_pipeline.answer_question_stream(
-            query=request.question,
-            top_k=request.top_k,
-            score_threshold=request.score_threshold,
-            filter_dict={"space_id": request.space_id},
-            fixed_context=personal_context.fixed_context,
-            memory_context=personal_context.memory_context,
-            history=history,
-        ):
-            yield token
+        answer_chunks = []
+        sources = []
+        tutor_action = None
+        current_concept_id = None
+        tutor_reason = None
+        try:
+            if route == "rag" and not request.image_data_url:
+                sources = await rag_pipeline.retrieve_contexts(
+                    query=request.question,
+                    top_k=request.top_k,
+                    score_threshold=request.score_threshold,
+                    filter_dict={"space_id": request.space_id},
+                )
+                async for token in generator.generate_stream(
+                    query=request.question,
+                    contexts=sources,
+                    fixed_context=personal_context.fixed_context,
+                    memory_context=personal_context.memory_context,
+                    history=history,
+                ):
+                    answer_chunks.append(token)
+                    yield stream_event("token", token=token)
+            else:
+                state = await agent_graph.run(AgentState(
+                    query=request.question,
+                    session_id=request.session_id,
+                    space_id=request.space_id,
+                    top_k=request.top_k,
+                    score_threshold=request.score_threshold,
+                    image_data_url=request.image_data_url,
+                    history=history,
+                    db_session=db,
+                    tutor_pending=pending_assessment is not None,
+                    fixed_context=personal_context.fixed_context,
+                    memory_context=personal_context.memory_context,
+                ))
+                sources = state.sources
+                tutor_action = state.tutor_action
+                current_concept_id = state.current_concept_id
+                tutor_reason = state.tutor_reason
+                async for token in stream_completed_answer(state.answer):
+                    answer_chunks.append(token)
+                    yield stream_event("token", token=token)
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+            answer = "".join(answer_chunks).rstrip()
+            await persist_exchange(
+                db,
+                request.session_id,
+                request.question,
+                answer,
+                sources,
+                chat_type="learning",
+                space_id=request.space_id,
+            )
+            yield stream_event(
+                "done",
+                sources=sources,
+                tutor_action=tutor_action,
+                current_concept_id=current_concept_id,
+                tutor_reason=tutor_reason,
+            )
+        except Exception as exc:
+            await db.rollback()
+            yield stream_event("error", message=str(exc) or "Streaming response failed.")
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

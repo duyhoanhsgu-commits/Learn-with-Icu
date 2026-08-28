@@ -171,6 +171,44 @@ If you don't know the answer or if the context does not contain enough informati
             f"Question: {query}"
         )
 
+    async def generate_general_stream(
+        self,
+        query: str,
+        history: List[Dict[str, str]] | None = None,
+        fixed_context: str | None = None,
+        memory_context: str | None = None,
+    ) -> AsyncGenerator[str, None]:
+        """Stream a general-chat response without document retrieval."""
+        if self._client:
+            try:
+                stream = await self._client.chat.completions.create(
+                    model=self.model_name,
+                    messages=self._build_general_messages(
+                        query,
+                        history,
+                        fixed_context,
+                        memory_context,
+                    ),
+                    temperature=0.4,
+                    stream=True,
+                )
+                async for chunk in stream:
+                    content = chunk.choices[0].delta.content
+                    if content:
+                        yield content
+                return
+            except Exception as e:
+                logger.error(f"General chat streaming error: {e}")
+
+        fallback = await self.generate_general_response(
+            query=query,
+            history=history,
+            fixed_context=fixed_context,
+            memory_context=memory_context,
+        )
+        for word in fallback.split(" "):
+            yield word + " "
+
     async def generate_stream(
         self,
         query: str,

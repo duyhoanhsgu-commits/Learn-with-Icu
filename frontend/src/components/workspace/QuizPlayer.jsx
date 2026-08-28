@@ -24,9 +24,9 @@ export default function QuizPlayer({ quiz, onExit }) {
 
     <main className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto flex min-h-full w-full max-w-[760px] flex-col justify-center px-4 py-6 sm:px-6 sm:py-10">
-        {submitted && <div className="mb-4 flex items-center justify-between rounded-[18px] bg-navy px-5 py-4 text-white shadow-[0_12px_30px_rgba(11,25,48,.16)]"><div><p className="text-[9px] font-bold uppercase tracking-[.18em] text-teal">Your result</p><p className="mt-1 text-xs text-slate-300">{Math.round((score / quiz.question_count) * 100)}% correct</p></div><p className="font-['Manrope'] text-3xl font-bold">{score}<span className="text-base text-slate-400">/{quiz.question_count}</span></p></div>}
+        {submitted && <div className="mb-4 flex items-center justify-between rounded-[18px] border border-brandblue/15 bg-brandblue/[.06] px-5 py-4 text-ink"><div><p className="text-[9px] font-bold uppercase tracking-[.18em] text-brandblue">Your result</p><p className="mt-1 text-xs text-muted">{Math.round((score / quiz.question_count) * 100)}% correct</p></div><p className="font-['Manrope'] text-3xl font-bold">{score}<span className="text-base text-muted">/{quiz.question_count}</span></p></div>}
 
-        <article className="rounded-[18px] border border-line bg-white p-5 shadow-[0_14px_38px_rgba(18,33,59,.07)] sm:p-8">
+        <article className="rounded-[18px] border border-line bg-white p-5 shadow-[var(--shadow-sm)] sm:p-8">
           <p className="font-['Manrope'] text-[18px] font-bold leading-7 text-ink sm:text-[22px] sm:leading-8">{question.question}</p>
           <div className="mt-6 space-y-3">
             {question.options.map((option, optionIndex) => {
@@ -51,7 +51,7 @@ export default function QuizPlayer({ quiz, onExit }) {
     <footer className="shrink-0 border-t border-line bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-[760px] items-center gap-3 px-4 py-3 sm:px-6 sm:py-4">
         <button disabled={current === 0} onClick={() => setCurrent((value) => value - 1)} aria-label="Previous question" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-line text-muted transition hover:border-teal/30 hover:bg-teal/[.04] hover:text-teal disabled:cursor-not-allowed disabled:opacity-30"><ChevronLeft size={18} /></button>
-        {!submitted && current === quiz.question_count - 1 ? <button disabled={answered !== quiz.question_count} onClick={() => setSubmitted(true)} className="h-11 flex-1 rounded-xl bg-navy px-5 text-xs font-bold text-white shadow-[0_7px_18px_rgba(11,25,48,.16)] transition hover:bg-teal disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none">Submit quiz</button> : <button disabled={current === quiz.question_count - 1} onClick={() => setCurrent((value) => value + 1)} className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-navy px-5 text-xs font-bold text-white shadow-[0_7px_18px_rgba(11,25,48,.16)] transition hover:bg-teal disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none">Next <ChevronRight size={15} /></button>}
+        {!submitted && current === quiz.question_count - 1 ? <button disabled={answered !== quiz.question_count} onClick={() => setSubmitted(true)} className="icu-primary-action h-11 flex-1 rounded-xl px-5 text-xs font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none">Submit quiz</button> : <button disabled={current === quiz.question_count - 1} onClick={() => setCurrent((value) => value + 1)} className="icu-primary-action flex h-11 flex-1 items-center justify-center gap-2 rounded-xl px-5 text-xs font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none">Next <ChevronRight size={15} /></button>}
       </div>
     </footer>
   </section>

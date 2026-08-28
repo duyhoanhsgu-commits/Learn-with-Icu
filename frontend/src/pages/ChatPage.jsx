@@ -8,12 +8,12 @@ import ConversationSidebar from '../components/chat/ConversationSidebar'
 import TutorOutputPanel from '../components/chat/TutorOutputPanel'
 import BrandLogo from '../components/common/BrandLogo'
 import { generalPrompts } from '../data/mockData'
-import { askGeneralQuestion, conversationsApi, toFrontendSources } from '../api/chat'
+import { conversationsApi, streamGeneralQuestion, toFrontendSources } from '../api/chat'
 
 const benefits = [
-  { label: 'Explain concepts', icon: Lightbulb },
-  { label: 'Practice with quizzes', icon: BrainCircuit },
-  { label: 'Learn from your files', icon: FileText },
+  { id: 'ask', label: 'Ask a question', description: 'Explore any topic', icon: Lightbulb },
+  { id: 'quiz', label: 'Practice quiz', description: 'Test your knowledge', icon: BrainCircuit },
+  { id: 'files', label: 'Learn from files', description: 'Study your materials', icon: FileText },
 ]
 
 const conversationTitle = (question) => {
@@ -219,13 +219,20 @@ export default function ChatPage({ onNavigate }) {
         setActiveConversationId(created.id)
         setConversations((items) => [created, ...items])
       }
-      const response = await askGeneralQuestion({ question: content, sessionId: conversationId })
-      setMessages((items) => [...items, {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: response.answer,
-        sources: toFrontendSources(response.sources),
-      }])
+      const assistantId = crypto.randomUUID()
+      let streamedAnswer = ''
+      const response = await streamGeneralQuestion(
+        { question: content, sessionId: conversationId },
+        (token) => {
+          streamedAnswer += token
+          setMessages((items) => {
+            const exists = items.some((item) => item.id === assistantId)
+            if (!exists) return [...items, { id: assistantId, role: 'assistant', content: streamedAnswer, sources: [] }]
+            return items.map((item) => item.id === assistantId ? { ...item, content: streamedAnswer } : item)
+          })
+        },
+      )
+      setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, sources: toFrontendSources(response.sources) } : item))
       try {
         const detail = await conversationsApi.get(conversationId)
         setContextTokenCount(detail.context_token_count ?? 0)
@@ -306,26 +313,31 @@ export default function ChatPage({ onNavigate }) {
   }
 
   const sidebarDisabled = historyLoading || isTyping || actionLoading || conversationLoading
+  const useQuickAction = (action) => {
+    if (action === 'files') { onNavigate('/learn'); return }
+    if (action === 'quiz') setDraft('Quiz me about ')
+    window.setTimeout(() => document.getElementById('icu-chat-input')?.focus(), 0)
+  }
 
   return <main className="flex h-[100dvh] overflow-hidden bg-canvas p-3 sm:p-4">
     <ConversationSidebar desktopWidth={leftWidth} conversations={conversations} activeId={activeConversationId} loading={historyLoading} error={historyError} open={sidebarOpen} disabled={sidebarDisabled} onClose={() => setSidebarOpen(false)} onNew={createNewConversation} onSelect={openConversation} onDelete={deleteConversation} onPersonalize={() => onNavigate('/personalization')} />
     <ResizeDivider side="left" onPointerDown={(event) => startPanelResize('left', event)} />
 
     <section className="flex min-w-0 flex-1 flex-col gap-3 overflow-hidden">
-      <header className="flex min-h-[72px] shrink-0 items-center justify-between rounded-[20px] border border-line bg-white px-3 shadow-[0_4px_20px_rgba(15,23,42,.04)] sm:px-6">
+      <header className="flex min-h-[72px] shrink-0 items-center justify-between rounded-[18px] border border-line bg-white px-3 shadow-[var(--shadow-sm)] sm:px-6">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3"><button type="button" onClick={() => setSidebarOpen(true)} aria-label="Open conversation history" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line text-muted hover:bg-slate-50 hover:text-ink lg:hidden"><Menu size={18} /></button><BrandLogo className="h-10 w-10 rounded-xl border border-line bg-white p-0.5 shadow-sm" /><div className="min-w-0"><h1 className="truncate font-['Manrope'] text-sm font-bold text-ink">{conversations.find((item) => item.id === activeConversationId)?.title || 'ICU Tutor'}</h1><p className="mt-0.5 truncate text-[10px] text-muted">Your AI learning companion</p></div></div>
-        <div className="flex shrink-0 items-center gap-2"><button type="button" onClick={toggleOutputPanel} aria-label="Toggle output workspace" title="Text and code workspace" className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition ${rightPanelOpen ? 'border-brandblue/20 bg-brandblue/[.07] text-brandblue' : 'border-line bg-white text-muted hover:bg-slate-50 hover:text-ink'}`}><PanelRightOpen size={16} /></button><button type="button" onClick={clearChat} disabled={!messages.length || isTyping || actionLoading || conversationLoading} aria-label="Clear visible chat" title="Clear chat without removing context" className="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-line bg-white px-3 text-xs font-semibold text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300"><Eraser size={15} /><span className="hidden md:inline">Clear chat</span></button><button onClick={() => onNavigate('/learn')} className="flex h-10 shrink-0 items-center gap-2 rounded-xl bg-brandblue px-3.5 text-xs font-semibold text-white transition hover:bg-[#426de8] sm:px-4"><BookOpen size={15} /><span className="hidden sm:inline">Learn with your files</span><span className="sm:hidden">Your files</span></button></div>
+        <div className="flex shrink-0 items-center gap-2"><button type="button" onClick={toggleOutputPanel} aria-label="Toggle output workspace" title="Text and code workspace" className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition ${rightPanelOpen ? 'border-brandblue/20 bg-brandblue/[.07] text-brandblue' : 'border-line bg-white text-muted hover:bg-slate-50 hover:text-ink'}`}><PanelRightOpen size={16} /></button><button type="button" onClick={clearChat} disabled={!messages.length || isTyping || actionLoading || conversationLoading} aria-label="Clear visible chat" title="Clear chat without removing context" className="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-line bg-white px-3 text-xs font-semibold text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300"><Eraser size={15} /><span className="hidden md:inline">Clear chat</span></button><button onClick={() => onNavigate('/learn')} className="icu-primary-action flex h-10 shrink-0 items-center gap-2 rounded-xl px-3.5 text-xs font-semibold text-white transition sm:px-4"><BookOpen size={15} /><span className="hidden sm:inline">Learn with your files</span><span className="sm:hidden">Your files</span></button></div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-line bg-white shadow-[0_4px_20px_rgba(15,23,42,.04)]">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[18px] border border-line bg-white shadow-[var(--shadow-sm)]">
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {conversationLoading ? <div className="grid h-full place-items-center"><div className="text-center"><LoaderCircle className="mx-auto animate-spin text-brandblue" /><p className="mt-3 text-xs text-muted">Loading conversation…</p></div></div> : messages.length ? <MessageList messages={messages} isTyping={isTyping} variant="general" /> : <section className="relative flex h-full min-h-[390px] flex-col items-center justify-center overflow-hidden px-5 pb-4 pt-6 text-center sm:px-8">
           <div className="general-hero-content relative z-10 flex flex-col items-center">
             <BrandLogo className="h-14 w-14 rounded-[18px] border border-line bg-white p-1.5 shadow-[0_4px_16px_rgba(15,23,42,.06)]" />
             <p className="mt-5 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.22em] text-brandblue"><Sparkles size={13} />ICU Tutor</p>
             <h2 className="mt-3 max-w-[700px] font-['Manrope'] text-[28px] font-bold leading-[1.15] tracking-[-.03em] text-ink sm:text-[32px]">What would you like to learn today?</h2>
-            <p className="mt-4 max-w-xl text-[14px] leading-7 text-muted">Ask a question, explore a new topic, or test what you already know.</p>
-            <div className="mt-7 hidden items-center justify-center gap-7 sm:flex">{benefits.map(({ label, icon: Icon }) => <div key={label} className="flex items-center gap-2 text-xs font-medium text-muted"><span className="grid h-7 w-7 place-items-center rounded-lg bg-brandblue/[.08] text-brandblue"><Icon size={14} /></span>{label}</div>)}</div>
+            <p className="mt-4 max-w-xl text-[14px] leading-6 text-muted">Ask a question, explore a topic,<br className="hidden sm:block" /> or use your learning tools.</p>
+            <div className="mt-7 grid w-full max-w-[700px] gap-3 sm:grid-cols-3">{benefits.map(({ id, label, description, icon: Icon }) => <button type="button" onClick={() => useQuickAction(id)} key={id} className="flex items-center gap-3 rounded-2xl border border-line bg-white p-3.5 text-left transition hover:border-brandblue/35 hover:bg-[#fffaf6] hover:shadow-[var(--shadow-sm)]"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brandblue/[.09] text-brandblue"><Icon size={18} /></span><span><span className="block text-xs font-semibold text-ink">{label}</span><span className="mt-1 block text-[10px] text-muted">{description}</span></span></button>)}</div>
           </div>
         </section>}
         </div>

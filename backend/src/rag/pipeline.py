@@ -144,5 +144,20 @@ class RAGPipeline:
         ):
             yield chunk
 
+    async def retrieve_contexts(
+        self,
+        query: str,
+        top_k: int = 5,
+        score_threshold: float = 0.0,
+        filter_dict: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Expose retrieval for transports that need to stream tokens and return sources."""
+        return await self._retrieve_contexts(
+            query=query,
+            top_k=top_k,
+            score_threshold=score_threshold,
+            filter_dict=filter_dict,
+        )
+
 
 rag_pipeline = RAGPipeline()

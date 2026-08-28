@@ -5,7 +5,7 @@ import SuggestedPrompts from '../components/chat/SuggestedPrompts'
 import ChatInput from '../components/chat/ChatInput'
 import { filePrompts } from '../data/mockData'
 import { documentsApi, toFrontendFile } from '../api/documents'
-import { askQuestion, toFrontendSources } from '../api/chat'
+import { streamQuestion, toFrontendSources } from '../api/chat'
 import { spacesApi } from '../api/spaces'
 import ResizableWorkspace from '../components/workspace/ResizableWorkspace'
 import DocumentsPanel from '../components/workspace/DocumentsPanel'
@@ -189,14 +189,28 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
     setMessagesBySpace((all) => ({ ...all, [space.id]: [...(all[space.id] || []), { id: crypto.randomUUID(), role: 'user', content }] }))
     setIsTyping(true)
     try {
-      const response = await askQuestion({ question: content, sessionId, spaceId: space.id, imageDataUrl })
-      const reply = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: response.answer,
-        sources: toFrontendSources(response.sources),
-      }
-      setMessagesBySpace((all) => ({ ...all, [space.id]: [...(all[space.id] || []), reply] }))
+      const assistantId = crypto.randomUUID()
+      let streamedAnswer = ''
+      const response = await streamQuestion(
+        { question: content, sessionId, spaceId: space.id, imageDataUrl },
+        (token) => {
+          streamedAnswer += token
+          setMessagesBySpace((all) => {
+            const current = all[space.id] || []
+            const exists = current.some((message) => message.id === assistantId)
+            const next = exists
+              ? current.map((message) => message.id === assistantId ? { ...message, content: streamedAnswer } : message)
+              : [...current, { id: assistantId, role: 'assistant', content: streamedAnswer, sources: [] }]
+            return { ...all, [space.id]: next }
+          })
+        },
+      )
+      setMessagesBySpace((all) => ({
+        ...all,
+        [space.id]: (all[space.id] || []).map((message) => message.id === assistantId
+          ? { ...message, sources: toFrontendSources(response.sources) }
+          : message),
+      }))
     } catch (error) {
       setMessagesBySpace((all) => ({ ...all, [space.id]: [...(all[space.id] || []), {
         id: crypto.randomUUID(),
@@ -217,7 +231,7 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
         ? 'Your files are being prepared...'
         : `Ask anything in ${activeSpace.name}...`
 
-  const chatPanel = <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[24px] border border-line bg-white shadow-[0_4px_20px_rgba(15,23,42,.04)]">
+  const chatPanel = <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[18px] border border-line bg-white shadow-[var(--shadow-sm)]">
     <header className="flex h-[72px] shrink-0 items-center justify-between px-4 sm:px-6">
       <div className="min-w-0"><p className="text-[9px] font-semibold uppercase tracking-[.2em] text-brandblue">Learning Chat</p><h2 className="mt-1 truncate font-['Manrope'] text-base font-bold text-ink">{activeSpace?.name || 'Learning Space'}</h2></div>
       <button onClick={restart} disabled={!activeSpace} title="Reset conversation" aria-label="Reset conversation" className="rounded-xl border border-line p-2.5 text-muted transition hover:border-teal/30 hover:bg-teal/[.05] hover:text-teal disabled:opacity-30"><RotateCcw size={15} /></button>
@@ -230,8 +244,8 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
   const documentsPanel = <DocumentsPanel spaces={learningSpaces} activeSpace={activeSpace} onSelectSpace={selectSpace} onCreateSpace={createSpace} onUpload={upload} onDeleteFile={deleteFile} selectedFile={selectedFile} onSelectFile={selectFile} sourceTarget={sourceTarget} onAsk={(question, excerpt, imageDataUrl) => send(excerpt ? `${question}\n\nSelected document excerpt:\n${excerpt}` : question, imageDataUrl)} onPersonalize={() => onNavigate('/personalization')} />
   const toolsPanel = <ToolsPanel disabled={unavailable || isTyping} onUseTool={send} spaceId={activeSpace?.id} />
 
-  return <main className="flex h-screen flex-col overflow-hidden bg-canvas p-3 sm:p-4">
-    <nav className="mb-3 flex h-[68px] shrink-0 items-center justify-between rounded-[20px] border border-line bg-white px-3 shadow-[0_4px_20px_rgba(15,23,42,.04)] sm:px-5">
+  return <main className="flex h-[100dvh] flex-col overflow-hidden bg-canvas p-3 sm:p-4">
+    <nav className="mb-3 flex h-[68px] shrink-0 items-center justify-between rounded-[18px] border border-line bg-white px-3 shadow-[var(--shadow-sm)] sm:px-5">
       <div className="flex min-w-0 items-center gap-3"><BrandLogo className="h-9 w-9 rounded-xl border border-line bg-white p-0.5 shadow-sm" /><span className="truncate font-['Manrope'] text-sm font-bold text-ink">ICU Learning Workspace</span></div>
       <div className="flex items-center gap-1 sm:gap-2"><button onClick={() => setMobilePane('documents')} className="rounded-xl p-2.5 text-muted hover:bg-slate-50 hover:text-ink lg:hidden" aria-label="Open learning materials"><Files size={17} /></button><button onClick={() => setMobilePane('tools')} className="rounded-xl p-2.5 text-muted hover:bg-slate-50 hover:text-ink lg:hidden" aria-label="Open study tools"><PanelRight size={17} /></button><button title="Help" aria-label="Help" className="hidden rounded-xl p-2.5 text-muted hover:bg-slate-50 hover:text-ink sm:grid"><HelpCircle size={17} /></button><button onClick={() => onNavigate('/chat')} className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2.5 text-[11px] font-semibold text-ink transition hover:border-brandblue/30 hover:bg-brandblue/[.04]"><span className="hidden sm:inline">General Chat</span><span className="sm:hidden">Chat</span><ChevronDown size={13} className="text-muted" /></button></div>
     </nav>
