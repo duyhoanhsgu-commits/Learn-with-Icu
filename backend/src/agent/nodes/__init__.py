@@ -3,6 +3,7 @@ from src.agent.nodes.rag import rag_node
 from src.agent.nodes.research import research_node
 from src.agent.nodes.summarize import summarize_node
 from src.agent.nodes.web_research import web_research_node
+from src.agent.nodes.tutor import tutor_node
 
 __all__ = [
     "general_chat_node",
@@ -10,4 +11,5 @@ __all__ = [
     "research_node",
     "summarize_node",
     "web_research_node",
+    "tutor_node",
 ]

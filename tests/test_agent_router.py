@@ -52,3 +52,33 @@ def test_simple_web_query_remains_backward_compatible():
     state = AgentState(query="Search the web for Python 3.14 news", session_id="s1")
 
     assert route_agent(state) == "web_research"
+
+
+def test_tutor_route_is_opt_in_and_pending_assessment_resumes():
+    request = AgentState(
+        query="Teach me embeddings",
+        session_id="s1",
+        space_id="space-1",
+    )
+    pending = AgentState(
+        query="An embedding is a dense vector",
+        session_id="s1",
+        space_id="space-1",
+        tutor_pending=True,
+    )
+
+    assert route_agent(request) == "tutor"
+    assert route_agent(pending) == "tutor"
+
+
+def test_struggle_and_assessment_language_routes_to_tutor():
+    messages = (
+        "Tôi đang bí phần embedding",
+        "Mình chưa hiểu semantic search",
+        "I'm stuck on vectors",
+        "Hỏi tôi vài câu về RAG",
+    )
+
+    for message in messages:
+        state = AgentState(query=message, session_id="s1", space_id="space-1")
+        assert route_agent(state) == "tutor"

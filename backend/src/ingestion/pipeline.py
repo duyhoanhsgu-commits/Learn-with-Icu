@@ -9,6 +9,7 @@ from src.embeddings.service import embedding_service
 from src.storage.vector_store import vector_store
 from src.storage.postgres import Document, DocumentChunk
 from src.core.logging import logger
+from src.knowledge import concept_extractor, knowledge_repository
 
 
 class IngestionPipeline:
@@ -75,11 +76,37 @@ class IngestionPipeline:
                 db_chunks.append(db_chunk)
 
             db_session.add_all(db_chunks)
+            await db_session.flush()
+            await db_session.commit()
 
-            # 7. Update Document status
+            # 7. Build a lightweight concept graph without changing Qdrant's role.
+            concept_count = 0
+            graph_status = "completed"
+            try:
+                extraction = await concept_extractor.extract(db_chunks)
+                async with db_session.begin_nested():
+                    await knowledge_repository.persist_extraction(
+                        db_session,
+                        doc_record.space_id,
+                        extraction,
+                    )
+                concept_count = len(extraction.concepts)
+            except Exception as graph_error:
+                # Graph enrichment is additive. A temporary LLM/parser failure must
+                # not invalidate chunks and embeddings already created for RAG.
+                graph_status = "failed"
+                logger.warning(
+                    f"Knowledge extraction failed for document_id={document_id}: {graph_error}"
+                )
+
+            # 8. Update Document status
             doc_record.status = "completed"
             doc_record.chunk_count = len(raw_chunks)
-            doc_record.meta_info = doc_metadata
+            doc_record.meta_info = {
+                **doc_metadata,
+                "knowledge_graph_status": graph_status,
+                "concept_count": concept_count,
+            }
             await db_session.commit()
 
             logger.info(f"Completed ingestion for document_id={document_id} with {len(raw_chunks)} chunks.")
@@ -87,6 +114,8 @@ class IngestionPipeline:
                 "document_id": document_id,
                 "status": "completed",
                 "chunk_count": len(raw_chunks),
+                "concept_count": concept_count,
+                "knowledge_graph_status": graph_status,
             }
 
         except Exception as e:

@@ -34,6 +34,66 @@ class SpaceContextUpdateResponse(SpaceContextResponse):
     updated: bool = True
 
 
+class KnowledgeGraphNodeResponse(BaseModel):
+    id: str
+    name: str
+    summary: str
+    difficulty: int
+    mastery: float
+    confidence: float
+    status: str
+    source_chunk_ids: List[str] = Field(default_factory=list)
+
+
+class KnowledgeGraphEdgeResponse(BaseModel):
+    source: str
+    target: str
+    relation: str
+
+
+class KnowledgeGraphResponse(BaseModel):
+    space_id: str
+    learner_id: str
+    nodes: List[KnowledgeGraphNodeResponse]
+    edges: List[KnowledgeGraphEdgeResponse]
+
+
+class LearnerConceptStateResponse(BaseModel):
+    concept_id: str
+    name: str
+    mastery: float
+    confidence: float
+    status: str
+    correct_count: int
+    wrong_count: int
+    last_reviewed_at: Optional[datetime] = None
+    assessment_pending: bool = False
+
+
+class LearnerStateResponse(BaseModel):
+    space_id: str
+    learner_id: str
+    concepts: List[LearnerConceptStateResponse]
+
+
+class LearningPathItemResponse(BaseModel):
+    concept_id: str
+    name: str
+    mastery: float
+    status: str
+
+
+class LearningPathResponse(BaseModel):
+    space_id: str
+    learner_id: str
+    mastered: List[LearningPathItemResponse]
+    learning: List[LearningPathItemResponse]
+    recommended_next: List[LearningPathItemResponse]
+    review: List[LearningPathItemResponse]
+    diagnostic_candidates: List[LearningPathItemResponse]
+    diagnostic_pending_concept_id: Optional[str] = None
+
+
 MemoryCategory = Literal[
     "goal",
     "preference",
@@ -131,6 +191,9 @@ class ChatQueryResponse(BaseModel):
     question: str
     answer: str
     sources: List[SourceChunk]
+    tutor_action: Optional[str] = None
+    current_concept_id: Optional[str] = None
+    tutor_reason: Optional[str] = None
 
 
 class ConversationCreate(BaseModel):

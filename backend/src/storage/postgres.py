@@ -192,6 +192,10 @@ class LearningTool(Base):
 
 async def init_db() -> None:
     """Initialize database tables."""
+    # Register extension models with the shared SQLAlchemy metadata.
+    import src.knowledge.models  # noqa: F401
+    import src.learner.models  # noqa: F401
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         # create_all does not alter existing tables. Upgrade early development

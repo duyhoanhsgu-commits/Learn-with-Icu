@@ -34,6 +34,8 @@ from src.api.schemas import (
     GeneralChatRequest,
 )
 from src.rag.generator import generator
+from src.learner import learner_repository
+from src.tutor import tutor_service
 
 router = APIRouter(prefix="/chat", tags=["Chat & Q&A"])
 
@@ -104,7 +106,7 @@ async def load_recent_history(
                 f"{conversation.context_summary}"
             ),
         })
-    return context_builder.recent_messages(history, CONTEXT_INPUT_TOKEN_BUDGET)
+    return context_builder.fit_recent_messages(history, CONTEXT_INPUT_TOKEN_BUDGET)
 
 
 async def persist_exchange(
@@ -225,7 +227,7 @@ async def get_conversation(
             )
         ],
     ]
-    active_context = context_builder.recent_messages(raw_context_items, CONTEXT_INPUT_TOKEN_BUDGET)
+    active_context = context_builder.fit_recent_messages(raw_context_items, CONTEXT_INPUT_TOKEN_BUDGET)
     active_item_metadata = raw_context_items[-len(active_context):] if active_context else []
     context_items = [
         ContextWindowItem(
@@ -427,6 +429,9 @@ async def general_chat(
         question=request.question,
         answer=state.answer,
         sources=state.sources,
+        tutor_action=state.tutor_action,
+        current_concept_id=state.current_concept_id,
+        tutor_reason=state.tutor_reason,
     )
 
 
@@ -459,6 +464,12 @@ async def chat_query(
         score_threshold=request.score_threshold,
         image_data_url=request.image_data_url,
         history=history,
+        db_session=db,
+        tutor_pending=(
+            await learner_repository.pending_assessment(
+                db, request.session_id, request.space_id
+            ) is not None
+        ),
         fixed_context=personal_context.fixed_context,
         memory_context=personal_context.memory_context,
     ))
@@ -479,6 +490,9 @@ async def chat_query(
         question=state.query,
         answer=state.answer,
         sources=state.sources,
+        tutor_action=state.tutor_action,
+        current_concept_id=state.current_concept_id,
+        tutor_reason=state.tutor_reason,
     )
 
 
@@ -502,6 +516,9 @@ async def chat_stream(
         space_id=request.space_id,
     )
 
+    pending_assessment = await learner_repository.pending_assessment(
+        db, request.session_id, request.space_id
+    )
     route = route_agent(AgentState(
         query=request.question,
         session_id=request.session_id,
@@ -509,9 +526,23 @@ async def chat_stream(
         history=history,
         fixed_context=personal_context.fixed_context,
         memory_context=personal_context.memory_context,
+        tutor_pending=pending_assessment is not None,
     ))
 
     async def event_generator():
+        if route == "tutor":
+            result = await tutor_service.respond(
+                db=db,
+                learner_id=request.session_id,
+                space_id=request.space_id,
+                message=request.question,
+                history=history,
+                top_k=request.top_k,
+                fixed_context=personal_context.fixed_context,
+                memory_context=personal_context.memory_context,
+            )
+            yield result.answer
+            return
         if route == "research":
             queue: asyncio.Queue = asyncio.Queue()
             research_state = ResearchState(

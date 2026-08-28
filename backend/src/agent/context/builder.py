@@ -1,27 +1,20 @@
 from typing import Any
 
-try:
-    import tiktoken
-except ImportError:  # Keep local tooling usable before dependencies are installed.
-    tiktoken = None
-
 from src.core.config import settings
+from src.core.tokenizer import cached_model_encoding
 
 CONTEXT_WINDOW_TOKEN_LIMIT = 128_000
 CONTEXT_OUTPUT_TOKEN_RESERVE = 8_000
 CONTEXT_INPUT_TOKEN_BUDGET = CONTEXT_WINDOW_TOKEN_LIMIT - CONTEXT_OUTPUT_TOKEN_RESERVE
+# Backward-compatible helper limit. Actual prompt construction is token-budgeted.
+RECENT_MESSAGE_LIMIT = 20
 
 
 class AgentContextBuilder:
     """Build ordered LLM messages from already-authorized context inputs."""
 
     def __init__(self) -> None:
-        self._encoding = None
-        if tiktoken is not None:
-            try:
-                self._encoding = tiktoken.encoding_for_model(settings.LLM_MODEL_NAME)
-            except KeyError:
-                self._encoding = tiktoken.get_encoding("o200k_base")
+        self._encoding = cached_model_encoding(settings.LLM_MODEL_NAME)
 
     def count_text_tokens(self, value: str) -> int:
         if self._encoding is not None:
@@ -87,7 +80,19 @@ class AgentContextBuilder:
             ),
         }
 
+    @staticmethod
     def recent_messages(
+        messages: list[dict[str, str]] | None,
+    ) -> list[dict[str, str]]:
+        valid: list[dict[str, str]] = []
+        for message in (messages or [])[-RECENT_MESSAGE_LIMIT:]:
+            role = message.get("role")
+            content = message.get("content", "").strip()
+            if role in {"user", "assistant"} and content:
+                valid.append({"role": role, "content": content})
+        return valid
+
+    def fit_recent_messages(
         self,
         messages: list[dict[str, str]] | None,
         token_budget: int = CONTEXT_INPUT_TOKEN_BUDGET,
@@ -147,7 +152,7 @@ class AgentContextBuilder:
             0,
             CONTEXT_INPUT_TOKEN_BUDGET - self.count_messages_tokens(reserved_messages),
         )
-        messages.extend(self.recent_messages(recent_messages, history_budget))
+        messages.extend(self.fit_recent_messages(recent_messages, history_budget))
         messages.append(query_message)
         return messages
 

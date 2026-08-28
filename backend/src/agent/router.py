@@ -1,6 +1,7 @@
 import re
 
 from src.agent.state import AgentRoute, AgentState
+from src.tutor.intents import is_explicit_tutor_request
 
 _SUMMARY_PATTERNS = (
     r"\bsummar(?:y|ize|ise|ization)\b",
@@ -34,7 +35,6 @@ _RESEARCH_PATTERNS = (
     r"\bphân tích\b.+\b(?:nhiều|đa) nguồn\b",
 )
 
-
 def route_agent(state: AgentState) -> AgentRoute:
     """Choose one node deterministically from endpoint intent and query text."""
     if state.requested_route:
@@ -46,6 +46,8 @@ def route_agent(state: AgentState) -> AgentRoute:
         return "web_research"
     if not state.space_id:
         return "general_chat"
+    if state.tutor_pending or is_explicit_tutor_request(state.query):
+        return "tutor"
     if any(re.search(pattern, query) for pattern in _SUMMARY_PATTERNS):
         return "summarize"
     return "rag"

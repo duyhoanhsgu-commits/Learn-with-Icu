@@ -6,6 +6,7 @@ from src.agent.nodes import (
     research_node,
     summarize_node,
     web_research_node,
+    tutor_node,
 )
 from src.agent.router import route_agent
 from src.agent.state import AgentRoute, AgentState
@@ -23,6 +24,7 @@ class AgentGraph:
             "summarize": summarize_node,
             "web_research": web_research_node,
             "research": research_node,
+            "tutor": tutor_node,
         }
 
     async def run(self, state: AgentState) -> AgentState:

@@ -1,9 +1,30 @@
 import re
 from typing import Any, Dict, List
 
-import tiktoken
-
 from src.core.config import settings
+from src.core.tokenizer import cached_model_encoding
+
+
+class _WordpieceEncoding:
+    """Offline-safe reversible wordpiece approximation."""
+
+    def __init__(self):
+        self._piece_to_id: dict[str, int] = {}
+        self._id_to_piece: dict[int, str] = {}
+
+    def encode(self, text: str) -> list[int]:
+        tokens = []
+        for piece in re.findall(r"\s|[\w]+|[^\w\s]", text, re.UNICODE):
+            token_id = self._piece_to_id.get(piece)
+            if token_id is None:
+                token_id = len(self._piece_to_id) + 1
+                self._piece_to_id[piece] = token_id
+                self._id_to_piece[token_id] = piece
+            tokens.append(token_id)
+        return tokens
+
+    def decode(self, tokens: list[int]) -> str:
+        return "".join(self._id_to_piece[token] for token in tokens)
 
 
 class TextChunker:
@@ -21,10 +42,7 @@ class TextChunker:
             raise ValueError("chunk_overlap must be between 0 and chunk_size")
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
-        try:
-            self.encoding = tiktoken.encoding_for_model(model_name)
-        except KeyError:
-            self.encoding = tiktoken.get_encoding("cl100k_base")
+        self.encoding = cached_model_encoding(model_name) or _WordpieceEncoding()
 
     def token_count(self, text: str) -> int:
         return len(self.encoding.encode(text))
