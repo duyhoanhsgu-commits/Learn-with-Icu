@@ -1,14 +1,15 @@
 import { BookOpen, BrainCircuit, Eraser, FileText, Lightbulb, LoaderCircle, Menu, PanelRightOpen, Sparkles } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import MessageList from '../components/chat/MessageList'
 import SuggestedPrompts from '../components/chat/SuggestedPrompts'
 import ChatInput from '../components/chat/ChatInput'
 import ContextWindowBar from '../components/chat/ContextWindowBar'
 import ConversationSidebar from '../components/chat/ConversationSidebar'
-import TutorOutputPanel from '../components/chat/TutorOutputPanel'
 import BrandLogo from '../components/common/BrandLogo'
 import { generalPrompts } from '../data/mockData'
 import { conversationsApi, streamGeneralQuestion, toFrontendSources } from '../api/chat'
+
+const TutorOutputPanel = lazy(() => import('../components/chat/TutorOutputPanel'))
 
 const benefits = [
   { id: 'ask', label: 'Ask a question', description: 'Explore any topic', icon: Lightbulb },
@@ -56,8 +57,9 @@ export default function ChatPage({ onNavigate }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [leftWidth, setLeftWidth] = useState(() => storedPanelWidth('icu-tutor-left-width', 286, 240, 420))
   const [rightWidth, setRightWidth] = useState(() => storedPanelWidth('icu-tutor-output-width', 360, 300, 560))
-  const [rightPanelOpen, setRightPanelOpen] = useState(true)
+  const [rightPanelOpen, setRightPanelOpen] = useState(false)
   const [outputMobileOpen, setOutputMobileOpen] = useState(false)
+  const [selectedArtifact, setSelectedArtifact] = useState(null)
   const loadRequestRef = useRef(0)
 
   useEffect(() => { localStorage.setItem('icu-tutor-left-width', String(leftWidth)) }, [leftWidth])
@@ -100,6 +102,12 @@ export default function ChatPage({ onNavigate }) {
     setRightPanelOpen((open) => !open)
   }
 
+  const previewArtifact = (artifact) => {
+    setSelectedArtifact(artifact)
+    setRightPanelOpen(true)
+    if (window.innerWidth < 1280) setOutputMobileOpen(true)
+  }
+
   useEffect(() => {
     let cancelled = false
     const loadHistory = async () => {
@@ -129,6 +137,8 @@ export default function ChatPage({ onNavigate }) {
     setHistoryError('')
     setDraft('')
     setSidebarOpen(false)
+    setSelectedArtifact(null)
+    setRightPanelOpen(false)
     try {
       const detail = await conversationsApi.get(conversationId)
       if (requestId === loadRequestRef.current) {
@@ -167,6 +177,8 @@ export default function ChatPage({ onNavigate }) {
       setDraft('')
       setConversationLoading(false)
       setSidebarOpen(false)
+      setSelectedArtifact(null)
+      setRightPanelOpen(false)
       return created
     } catch (error) {
       setHistoryError(error.message)
@@ -194,6 +206,8 @@ export default function ChatPage({ onNavigate }) {
         setContextCanCompact(false)
         setContextItems([])
         setDraft('')
+        setSelectedArtifact(null)
+        setRightPanelOpen(false)
         if (remaining.length) await openConversation(remaining[0].id)
       }
     } catch (error) {
@@ -305,6 +319,8 @@ export default function ChatPage({ onNavigate }) {
       await conversationsApi.clear(activeConversationId)
       setMessages([])
       setDraft('')
+      setSelectedArtifact(null)
+      setRightPanelOpen(false)
     } catch (error) {
       setHistoryError(error.message)
     } finally {
@@ -326,12 +342,12 @@ export default function ChatPage({ onNavigate }) {
     <section className="flex min-w-0 flex-1 flex-col gap-3 overflow-hidden">
       <header className="flex min-h-[72px] shrink-0 items-center justify-between rounded-[18px] border border-line bg-white px-3 shadow-[var(--shadow-sm)] sm:px-6">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3"><button type="button" onClick={() => setSidebarOpen(true)} aria-label="Open conversation history" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line text-muted hover:bg-slate-50 hover:text-ink lg:hidden"><Menu size={18} /></button><BrandLogo className="h-10 w-10 rounded-xl border border-line bg-white p-0.5 shadow-sm" /><div className="min-w-0"><h1 className="truncate font-['Manrope'] text-sm font-bold text-ink">{conversations.find((item) => item.id === activeConversationId)?.title || 'ICU Tutor'}</h1><p className="mt-0.5 truncate text-[10px] text-muted">Your AI learning companion</p></div></div>
-        <div className="flex shrink-0 items-center gap-2"><button type="button" onClick={toggleOutputPanel} aria-label="Toggle output workspace" title="Text and code workspace" className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition ${rightPanelOpen ? 'border-brandblue/20 bg-brandblue/[.07] text-brandblue' : 'border-line bg-white text-muted hover:bg-slate-50 hover:text-ink'}`}><PanelRightOpen size={16} /></button><button type="button" onClick={clearChat} disabled={!messages.length || isTyping || actionLoading || conversationLoading} aria-label="Clear visible chat" title="Clear chat without removing context" className="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-line bg-white px-3 text-xs font-semibold text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300"><Eraser size={15} /><span className="hidden md:inline">Clear chat</span></button><button onClick={() => onNavigate('/learn')} className="icu-primary-action flex h-10 shrink-0 items-center gap-2 rounded-xl px-3.5 text-xs font-semibold text-white transition sm:px-4"><BookOpen size={15} /><span className="hidden sm:inline">Learn with your files</span><span className="sm:hidden">Your files</span></button></div>
+        <div className="flex shrink-0 items-center gap-2"><button type="button" onClick={toggleOutputPanel} aria-label="Toggle artifact workspace" title="Artifact preview workspace" className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition ${rightPanelOpen ? 'border-brandblue/20 bg-brandblue/[.07] text-brandblue' : 'border-line bg-white text-muted hover:bg-slate-50 hover:text-ink'}`}><PanelRightOpen size={16} /></button><button type="button" onClick={clearChat} disabled={!messages.length || isTyping || actionLoading || conversationLoading} aria-label="Clear visible chat" title="Clear chat without removing context" className="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-line bg-white px-3 text-xs font-semibold text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300"><Eraser size={15} /><span className="hidden md:inline">Clear chat</span></button><button onClick={() => onNavigate('/learn')} className="icu-primary-action flex h-10 shrink-0 items-center gap-2 rounded-xl px-3.5 text-xs font-semibold text-white transition sm:px-4"><BookOpen size={15} /><span className="hidden sm:inline">Learn with your files</span><span className="sm:hidden">Your files</span></button></div>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[18px] border border-line bg-white shadow-[var(--shadow-sm)]">
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        {conversationLoading ? <div className="grid h-full place-items-center"><div className="text-center"><LoaderCircle className="mx-auto animate-spin text-brandblue" /><p className="mt-3 text-xs text-muted">Loading conversation…</p></div></div> : messages.length ? <MessageList messages={messages} isTyping={isTyping} variant="general" /> : <section className="relative flex h-full min-h-[390px] flex-col items-center justify-center overflow-hidden px-5 pb-4 pt-6 text-center sm:px-8">
+        {conversationLoading ? <div className="grid h-full place-items-center"><div className="text-center"><LoaderCircle className="mx-auto animate-spin text-brandblue" /><p className="mt-3 text-xs text-muted">Loading conversation…</p></div></div> : messages.length ? <MessageList messages={messages} isTyping={isTyping} onPreviewArtifact={previewArtifact} variant="general" /> : <section className="relative flex h-full min-h-[390px] flex-col items-center justify-center overflow-hidden px-5 pb-4 pt-6 text-center sm:px-8">
           <div className="general-hero-content relative z-10 flex flex-col items-center">
             <BrandLogo className="h-14 w-14 rounded-[18px] border border-line bg-white p-1.5 shadow-[0_4px_16px_rgba(15,23,42,.06)]" />
             <p className="mt-5 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.22em] text-brandblue"><Sparkles size={13} />ICU Tutor</p>
@@ -349,6 +365,6 @@ export default function ChatPage({ onNavigate }) {
       </div>
       </div>
     </section>
-    {rightPanelOpen ? <><ResizeDivider side="right" onPointerDown={(event) => startPanelResize('right', event)} /><TutorOutputPanel messages={messages} width={rightWidth} mobileOpen={outputMobileOpen} onCloseMobile={() => setOutputMobileOpen(false)} onCollapse={() => setRightPanelOpen(false)} /></> : null}
+    {rightPanelOpen ? <><ResizeDivider side="right" onPointerDown={(event) => startPanelResize('right', event)} /><Suspense fallback={<aside style={{ width: rightWidth }} className="hidden h-full shrink-0 place-items-center rounded-[18px] border border-line bg-white text-xs text-muted xl:grid">Loading preview…</aside>}><TutorOutputPanel artifact={selectedArtifact} width={rightWidth} mobileOpen={outputMobileOpen} onCloseMobile={() => setOutputMobileOpen(false)} onCollapse={() => setRightPanelOpen(false)} /></Suspense></> : null}
   </main>
 }

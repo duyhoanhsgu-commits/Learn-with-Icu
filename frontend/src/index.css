@@ -113,6 +113,11 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-
 .assistant-markdown a { color: #087f75; text-decoration: underline; text-underline-offset: 2px; }
 .assistant-markdown :not(pre) > code { border-radius: .35rem; background: #eef2f7; padding: .12rem .35rem; color: #be123c; font-size: .85em; }
 .assistant-markdown pre { margin: 1em 0; max-width: 100%; overflow-x: auto; border-radius: .75rem; background: #0f172a; padding: 1rem; color: #e2e8f0; font-size: .78rem; line-height: 1.65; }
+.assistant-code-artifact { margin: 1em 0; overflow: hidden; border-radius: 12px; background: #111827; }
+.assistant-code-artifact .assistant-code-toolbar { display: flex; min-height: 36px; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid rgba(255,255,255,.08); padding: 0 10px 0 14px; color: #98a2b3; font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
+.assistant-code-artifact .assistant-code-toolbar button { display: inline-flex; height: 26px; align-items: center; gap: 5px; border-radius: 7px; padding: 0 7px; color: #cbd5e1; text-transform: none; letter-spacing: 0; transition: background-color 160ms ease, color 160ms ease; }
+.assistant-code-artifact .assistant-code-toolbar button:hover { background: rgba(255,255,255,.08); color: white; }
+.assistant-markdown .assistant-code-artifact pre { margin: 0; border-radius: 0; padding: 14px 16px; }
 .assistant-markdown table { display: block; margin: 1em 0; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: .8rem; }
 .assistant-markdown th, .assistant-markdown td { border: 1px solid #dbe3ec; padding: .5rem .65rem; text-align: left; }
 .assistant-markdown th { background: #f1f5f9; color: #0f172a; font-weight: 600; }
