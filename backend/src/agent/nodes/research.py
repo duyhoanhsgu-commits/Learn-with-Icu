@@ -9,6 +9,7 @@ async def research_node(state: AgentState) -> AgentState:
         fixed_context=state.fixed_context,
         memory_context=state.memory_context,
         history=state.history,
+        progress_callback=state.progress_callback,
     ))
     state.answer = result.report or "Không thu thập được đủ evidence để tạo báo cáo."
     state.sources = result.sources

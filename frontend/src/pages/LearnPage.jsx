@@ -40,6 +40,7 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
   const [activeSpaceId, setActiveSpaceId] = useState(learningSpaces[0]?.id || null)
   const [messagesBySpace, setMessagesBySpace] = useState(() => Object.fromEntries(learningSpaces.map((space) => [space.id, [openingMessage(space)]])))
   const [draft, setDraft] = useState('')
+  const [chatMode, setChatMode] = useState('auto')
   const [isTyping, setIsTyping] = useState(false)
   const [selectedFileId, setSelectedFileId] = useState(null)
   const [sourceTarget, setSourceTarget] = useState(null)
@@ -188,35 +189,65 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
     setDraft('')
     setMessagesBySpace((all) => ({ ...all, [space.id]: [...(all[space.id] || []), { id: crypto.randomUUID(), role: 'user', content }] }))
     setIsTyping(true)
+    const assistantId = crypto.randomUUID()
     try {
-      const assistantId = crypto.randomUUID()
       let streamedAnswer = ''
+      const updateAssistant = (updater) => {
+        setMessagesBySpace((all) => {
+          const current = all[space.id] || []
+          const existing = current.find((message) => message.id === assistantId)
+          const base = existing || {
+            id: assistantId,
+            role: 'assistant',
+            content: streamedAnswer,
+            sources: [],
+            researchProgress: [],
+          }
+          const updated = updater(base)
+          const next = existing
+            ? current.map((message) => message.id === assistantId ? updated : message)
+            : [...current, updated]
+          return { ...all, [space.id]: next }
+        })
+      }
       const response = await streamQuestion(
-        { question: content, sessionId, spaceId: space.id, imageDataUrl },
+        { question: content, sessionId, spaceId: space.id, imageDataUrl, mode: chatMode },
         (token) => {
           streamedAnswer += token
-          setMessagesBySpace((all) => {
-            const current = all[space.id] || []
-            const exists = current.some((message) => message.id === assistantId)
-            const next = exists
-              ? current.map((message) => message.id === assistantId ? { ...message, content: streamedAnswer } : message)
-              : [...current, { id: assistantId, role: 'assistant', content: streamedAnswer, sources: [] }]
-            return { ...all, [space.id]: next }
-          })
+          updateAssistant((message) => ({ ...message, content: streamedAnswer }))
+        },
+        (progress) => {
+          updateAssistant((message) => ({
+            ...message,
+            researchProgress: [...(message.researchProgress || []), progress],
+            researchStatus: progress.stage === 'research.done' ? 'completed' : 'running',
+          }))
         },
       )
       setMessagesBySpace((all) => ({
         ...all,
         [space.id]: (all[space.id] || []).map((message) => message.id === assistantId
-          ? { ...message, sources: toFrontendSources(response.sources) }
+          ? {
+              ...message,
+              sources: toFrontendSources(response.sources),
+              researchStatus: message.researchProgress?.length ? 'completed' : message.researchStatus,
+            }
           : message),
       }))
     } catch (error) {
-      setMessagesBySpace((all) => ({ ...all, [space.id]: [...(all[space.id] || []), {
-        id: crypto.randomUUID(),
-        role: 'error',
-        content: `Unable to reach ICU Tutor: ${error.message}`,
-      }] }))
+      setMessagesBySpace((all) => ({
+        ...all,
+        [space.id]: [
+          ...(all[space.id] || []).map((message) => message.role === 'assistant' && message.researchStatus === 'running'
+            && message.id === assistantId ? { ...message, researchStatus: 'failed' }
+            : message),
+          {
+            id: crypto.randomUUID(),
+            role: 'error',
+            content: `Unable to reach ICU Tutor: ${error.message}`,
+          },
+        ],
+      }))
     } finally {
       setIsTyping(false)
     }
@@ -238,7 +269,7 @@ export default function LearnPage({ learningSpaces, setLearningSpaces, documents
     </header>
     {(notice || documentsState.error) && <div className={`mx-4 mt-3 flex items-center gap-2 rounded-xl border px-3 py-2.5 text-[11px] sm:mx-6 ${notice?.type === 'success' && !documentsState.error ? 'border-brandblue/20 bg-brandblue/[.06] text-[#315fcf]' : 'border-red-200 bg-red-50 text-red-700'}`}>{notice?.type === 'success' && !documentsState.error ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}<span className="flex-1">{documentsState.error ? `API unavailable: ${documentsState.error}` : notice.message}</span><button onClick={() => setNotice(null)} aria-label="Dismiss notification" className="rounded p-1">×</button></div>}
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">{activeSpace ? (messages.length <= 1 && !isTyping ? <WorkspaceWelcome space={activeSpace} files={readyFiles} /> : <MessageList messages={messages} isTyping={isTyping} onSourceClick={openSource} />) : <div className="grid h-full place-items-center px-6 text-center"><div><FolderOpen className="mx-auto text-slate-300" /><p className="mt-3 text-sm font-semibold">Create a Learning Space</p></div></div>}</div>
-    <div className="shrink-0 bg-white pb-4 pt-3"><SuggestedPrompts prompts={filePrompts} onSelect={(prompt) => !unavailable && setDraft(prompt)} /><ChatInput value={draft} onChange={setDraft} onSubmit={send} disabled={unavailable || isTyping} placeholder={indexedFiles.length ? 'Ask anything about your materials…' : placeholder} /></div>
+    <div className="shrink-0 bg-white pb-4 pt-3"><SuggestedPrompts prompts={filePrompts} onSelect={(prompt) => !unavailable && setDraft(prompt)} /><ChatInput value={draft} onChange={setDraft} onSubmit={send} disabled={unavailable || isTyping} placeholder={indexedFiles.length ? 'Ask anything about your materials…' : placeholder} mode={chatMode} onModeChange={setChatMode} /></div>
   </section>
 
   const documentsPanel = <DocumentsPanel spaces={learningSpaces} activeSpace={activeSpace} onSelectSpace={selectSpace} onCreateSpace={createSpace} onUpload={upload} onDeleteFile={deleteFile} selectedFile={selectedFile} onSelectFile={selectFile} sourceTarget={sourceTarget} onAsk={(question, excerpt, imageDataUrl) => send(excerpt ? `${question}\n\nSelected document excerpt:\n${excerpt}` : question, imageDataUrl)} onPersonalize={() => onNavigate('/personalization')} />

@@ -157,6 +157,10 @@ class DocumentUploadResponse(BaseModel):
 class GeneralChatRequest(BaseModel):
     question: str = Field(..., description="User query / question")
     session_id: str = Field(default="default_session", description="Chat session identifier")
+    mode: Literal["auto", "research"] = Field(
+        default="auto",
+        description="Select normal chat or explicitly run the Research Agent",
+    )
     space_id: Optional[str] = Field(
         default=None,
         description="Optional learning space whose fixed context should be used",

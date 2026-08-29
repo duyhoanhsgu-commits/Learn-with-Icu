@@ -1,6 +1,6 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1'
 
-export async function askQuestion({ question, sessionId, spaceId, imageDataUrl, topK = 5, scoreThreshold = 0 }) {
+export async function askQuestion({ question, sessionId, spaceId, imageDataUrl, mode = 'auto', topK = 5, scoreThreshold = 0 }) {
   const response = await fetch(`${API_BASE_URL}/chat/query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -9,6 +9,7 @@ export async function askQuestion({ question, sessionId, spaceId, imageDataUrl, 
       session_id: sessionId,
       space_id: spaceId,
       image_data_url: imageDataUrl,
+      mode,
       top_k: topK,
       score_threshold: scoreThreshold,
     }),
@@ -28,11 +29,11 @@ export async function askQuestion({ question, sessionId, spaceId, imageDataUrl, 
   return response.json()
 }
 
-export async function askGeneralQuestion({ question, sessionId }) {
+export async function askGeneralQuestion({ question, sessionId, mode = 'auto' }) {
   const response = await fetch(`${API_BASE_URL}/chat/general`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question, session_id: sessionId }),
+    body: JSON.stringify({ question, session_id: sessionId, mode }),
   })
 
   if (!response.ok) {
@@ -48,7 +49,7 @@ export async function askGeneralQuestion({ question, sessionId }) {
   return response.json()
 }
 
-async function streamChat(path, payload, onToken) {
+async function streamChat(path, payload, onToken, onProgress) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
@@ -79,6 +80,7 @@ async function streamChat(path, payload, onToken) {
     if (!data) return
     const event = JSON.parse(data)
     if (event.type === 'token') onToken?.(event.token || '')
+    if (event.type === 'progress') onProgress?.(event)
     if (event.type === 'done') completed = event
     if (event.type === 'error') throw new Error(event.message || 'Streaming response failed.')
   }
@@ -99,20 +101,21 @@ async function streamChat(path, payload, onToken) {
   return completed
 }
 
-export function streamGeneralQuestion({ question, sessionId }, onToken) {
-  return streamChat('/chat/general/stream', { question, session_id: sessionId }, onToken)
+export function streamGeneralQuestion({ question, sessionId, mode = 'auto' }, onToken, onProgress) {
+  return streamChat('/chat/general/stream', { question, session_id: sessionId, mode }, onToken, onProgress)
 }
 
-export function streamQuestion({ question, sessionId, spaceId, imageDataUrl, topK = 5, scoreThreshold = 0 }, onToken) {
+export function streamQuestion({ question, sessionId, spaceId, imageDataUrl, mode = 'auto', topK = 5, scoreThreshold = 0 }, onToken, onProgress) {
   return streamChat('/chat/stream', {
     question,
     session_id: sessionId,
     space_id: spaceId,
     image_data_url: imageDataUrl,
+    mode,
     top_k: topK,
     score_threshold: scoreThreshold,
     stream: true,
-  }, onToken)
+  }, onToken, onProgress)
 }
 
 async function conversationRequest(path, options = {}) {

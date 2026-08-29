@@ -42,6 +42,21 @@ def stream_event(event_type: str, **payload) -> str:
     return f"data: {json.dumps({'type': event_type, **payload}, ensure_ascii=False)}\n\n"
 
 
+def safe_research_progress(event: dict) -> dict:
+    """Return only the public, presentation-safe portion of a research event."""
+    stage = str(event.get("type") or "research.processing")[:80]
+    message = str(event.get("message") or "Processing research")[:160]
+    payload = {"stage": stage, "message": message}
+    for key in ("current", "total"):
+        value = event.get(key)
+        if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+            payload[key] = value
+    status_value = event.get("status")
+    if status_value in {"pending", "active", "completed", "failed"}:
+        payload["status"] = status_value
+    return payload
+
+
 async def stream_completed_answer(answer: str):
     """Stream already-computed specialist answers through the same client contract."""
     for word in answer.split(" "):
@@ -420,7 +435,9 @@ async def general_chat(
         query=request.question,
         session_id=request.session_id,
         space_id=request.space_id,
-        requested_route="general_chat",
+        requested_route=(
+            "research" if request.mode == "research" else "general_chat"
+        ),
         history=history,
         fixed_context=personal_context.fixed_context,
         memory_context=personal_context.memory_context,
@@ -430,6 +447,7 @@ async def general_chat(
         request.session_id,
         request.question,
         state.answer,
+        state.sources,
         chat_type="general",
         space_id=request.space_id,
     )
@@ -462,25 +480,69 @@ async def general_chat_stream(
 
     async def event_generator():
         chunks = []
+        sources = []
         try:
-            async for token in generator.generate_general_stream(
-                query=request.question,
-                history=history,
-                fixed_context=personal_context.fixed_context,
-                memory_context=personal_context.memory_context,
-            ):
-                chunks.append(token)
-                yield stream_event("token", token=token)
+            if request.mode == "research":
+                progress_queue = asyncio.Queue()
+
+                def forward_progress(event: dict) -> None:
+                    progress_queue.put_nowait(event)
+
+                agent_state = AgentState(
+                    query=request.question,
+                    session_id=request.session_id,
+                    space_id=request.space_id,
+                    requested_route="research",
+                    history=history,
+                    fixed_context=personal_context.fixed_context,
+                    memory_context=personal_context.memory_context,
+                    progress_callback=forward_progress,
+                )
+
+                async def run_research():
+                    try:
+                        return await agent_graph.run(agent_state)
+                    finally:
+                        progress_queue.put_nowait(None)
+
+                research_task = asyncio.create_task(run_research())
+                try:
+                    while True:
+                        progress = await progress_queue.get()
+                        if progress is None:
+                            break
+                        yield stream_event(
+                            "progress",
+                            **safe_research_progress(progress),
+                        )
+                    state = await research_task
+                finally:
+                    if not research_task.done():
+                        research_task.cancel()
+                sources = state.sources
+                async for token in stream_completed_answer(state.answer):
+                    chunks.append(token)
+                    yield stream_event("token", token=token)
+            else:
+                async for token in generator.generate_general_stream(
+                    query=request.question,
+                    history=history,
+                    fixed_context=personal_context.fixed_context,
+                    memory_context=personal_context.memory_context,
+                ):
+                    chunks.append(token)
+                    yield stream_event("token", token=token)
             answer = "".join(chunks)
             await persist_exchange(
                 db,
                 request.session_id,
                 request.question,
                 answer,
+                sources,
                 chat_type="general",
                 space_id=request.space_id,
             )
-            yield stream_event("done", sources=[])
+            yield stream_event("done", sources=sources)
         except Exception as exc:
             await db.rollback()
             yield stream_event("error", message=str(exc) or "Streaming response failed.")
@@ -522,6 +584,7 @@ async def chat_query(
         image_data_url=request.image_data_url,
         history=history,
         db_session=db,
+        requested_route="research" if request.mode == "research" else None,
         tutor_pending=(
             await learner_repository.pending_assessment(
                 db, request.session_id, request.space_id
@@ -583,6 +646,7 @@ async def chat_stream(
         history=history,
         fixed_context=personal_context.fixed_context,
         memory_context=personal_context.memory_context,
+        requested_route="research" if request.mode == "research" else None,
         tutor_pending=pending_assessment is not None,
     ))
 
@@ -610,7 +674,13 @@ async def chat_stream(
                     answer_chunks.append(token)
                     yield stream_event("token", token=token)
             else:
-                state = await agent_graph.run(AgentState(
+                progress_queue = asyncio.Queue() if route == "research" else None
+
+                def forward_progress(event: dict) -> None:
+                    if progress_queue is not None:
+                        progress_queue.put_nowait(event)
+
+                agent_state = AgentState(
                     query=request.question,
                     session_id=request.session_id,
                     space_id=request.space_id,
@@ -619,10 +689,35 @@ async def chat_stream(
                     image_data_url=request.image_data_url,
                     history=history,
                     db_session=db,
+                    requested_route=route,
                     tutor_pending=pending_assessment is not None,
                     fixed_context=personal_context.fixed_context,
                     memory_context=personal_context.memory_context,
-                ))
+                    progress_callback=forward_progress if progress_queue else None,
+                )
+                if progress_queue is None:
+                    state = await agent_graph.run(agent_state)
+                else:
+                    async def run_research():
+                        try:
+                            return await agent_graph.run(agent_state)
+                        finally:
+                            progress_queue.put_nowait(None)
+
+                    research_task = asyncio.create_task(run_research())
+                    try:
+                        while True:
+                            progress = await progress_queue.get()
+                            if progress is None:
+                                break
+                            yield stream_event(
+                                "progress",
+                                **safe_research_progress(progress),
+                            )
+                        state = await research_task
+                    finally:
+                        if not research_task.done():
+                            research_task.cancel()
                 sources = state.sources
                 tutor_action = state.tutor_action
                 current_concept_id = state.current_concept_id

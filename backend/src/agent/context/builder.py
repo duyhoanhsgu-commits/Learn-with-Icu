@@ -133,6 +133,7 @@ class AgentContextBuilder:
         memory_context: str | None = None,
         retrieved_context: str | None = None,
         recent_messages: list[dict[str, str]] | None = None,
+        token_budget: int = CONTEXT_INPUT_TOKEN_BUDGET,
     ) -> list[dict[str, Any]]:
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": base_system_prompt},
@@ -150,7 +151,7 @@ class AgentContextBuilder:
         reserved_messages = [*messages, query_message]
         history_budget = max(
             0,
-            CONTEXT_INPUT_TOKEN_BUDGET - self.count_messages_tokens(reserved_messages),
+            token_budget - self.count_messages_tokens(reserved_messages),
         )
         messages.extend(self.fit_recent_messages(recent_messages, history_budget))
         messages.append(query_message)

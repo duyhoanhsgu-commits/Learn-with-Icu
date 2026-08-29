@@ -12,7 +12,7 @@ class FakeCompletions:
         payload = {
             "topic": "Transformer efficiency",
             "intent": "deep_research",
-            "depth": "deep",
+            "depth": "standard",
             "entities": ["Transformer"],
             "constraints": ["peer-reviewed evidence"],
             "needs_fresh_information": True,
@@ -34,6 +34,17 @@ async def test_query_understanding_uses_structured_llm_output():
     assert state.query_understanding.topic == "Transformer efficiency"
     assert state.query_understanding.needs_fresh_information is True
     assert state.query_understanding.use_local_sources is True
+    assert state.query_understanding.depth == "deep"
+
+
+@pytest.mark.asyncio
+async def test_query_understanding_respects_explicit_brief_request():
+    client = SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
+    state = ResearchState(query="Give me a brief research report about RAG")
+
+    await QueryUnderstandingNode(client=client).run(state)
+
+    assert state.query_understanding.depth == "brief"
 
 
 def test_query_understanding_fallback_disables_local_without_space():

@@ -43,6 +43,7 @@ export default function ChatPage({ onNavigate }) {
   const [conversations, setConversations] = useState([])
   const [activeConversationId, setActiveConversationId] = useState(null)
   const [draft, setDraft] = useState('')
+  const [chatMode, setChatMode] = useState('auto')
   const [isTyping, setIsTyping] = useState(false)
   const [historyLoading, setHistoryLoading] = useState(true)
   const [conversationLoading, setConversationLoading] = useState(false)
@@ -241,6 +242,7 @@ export default function ChatPage({ onNavigate }) {
     setIsTyping(true)
     setHistoryError('')
     setMessages((items) => [...items, { id: crypto.randomUUID(), role: 'user', content }])
+    const assistantId = crypto.randomUUID()
 
     try {
       let conversationId = activeConversationId
@@ -250,20 +252,42 @@ export default function ChatPage({ onNavigate }) {
         setActiveConversationId(created.id)
         setConversations((items) => [created, ...items])
       }
-      const assistantId = crypto.randomUUID()
       let streamedAnswer = ''
+      const updateAssistant = (updater) => {
+        setMessages((items) => {
+          const existing = items.find((item) => item.id === assistantId)
+          const base = existing || {
+            id: assistantId,
+            role: 'assistant',
+            content: streamedAnswer,
+            sources: [],
+            researchProgress: [],
+          }
+          const updated = updater(base)
+          return existing
+            ? items.map((item) => item.id === assistantId ? updated : item)
+            : [...items, updated]
+        })
+      }
       const response = await streamGeneralQuestion(
-        { question: content, sessionId: conversationId },
+        { question: content, sessionId: conversationId, mode: chatMode },
         (token) => {
           streamedAnswer += token
-          setMessages((items) => {
-            const exists = items.some((item) => item.id === assistantId)
-            if (!exists) return [...items, { id: assistantId, role: 'assistant', content: streamedAnswer, sources: [] }]
-            return items.map((item) => item.id === assistantId ? { ...item, content: streamedAnswer } : item)
-          })
+          updateAssistant((message) => ({ ...message, content: streamedAnswer }))
+        },
+        (progress) => {
+          updateAssistant((message) => ({
+            ...message,
+            researchProgress: [...(message.researchProgress || []), progress],
+            researchStatus: progress.stage === 'research.done' ? 'completed' : 'running',
+          }))
         },
       )
-      setMessages((items) => items.map((item) => item.id === assistantId ? { ...item, sources: toFrontendSources(response.sources) } : item))
+      setMessages((items) => items.map((item) => item.id === assistantId ? {
+        ...item,
+        sources: toFrontendSources(response.sources),
+        researchStatus: item.researchProgress?.length ? 'completed' : item.researchStatus,
+      } : item))
       try {
         const detail = await conversationsApi.get(conversationId)
         setContextTokenCount(detail.context_token_count ?? 0)
@@ -282,7 +306,12 @@ export default function ChatPage({ onNavigate }) {
         return [updated, ...items.filter((item) => item.id !== conversationId)]
       })
     } catch (error) {
-      setMessages((items) => [...items, { id: crypto.randomUUID(), role: 'error', content: `Unable to reach ICU Tutor: ${error.message}` }])
+      setMessages((items) => [
+        ...items.map((item) => item.id === assistantId && item.researchStatus === 'running'
+          ? { ...item, researchStatus: 'failed' }
+          : item),
+        { id: crypto.randomUUID(), role: 'error', content: `Unable to reach ICU Tutor: ${error.message}` },
+      ])
     } finally {
       setIsTyping(false)
     }
@@ -378,7 +407,7 @@ export default function ChatPage({ onNavigate }) {
       <div className="general-chat-bottom shrink-0 bg-white px-0 pb-1 pt-3 sm:px-4">
         {!messages.length && !conversationLoading ? <SuggestedPrompts prompts={generalPrompts} onSelect={setDraft} variant="landing" /> : null}
         <ContextWindowBar tokenCount={contextTokenCount} tokenLimit={contextTokenLimit} contextItems={contextItems} canSummarize={contextCanCompact} disabled={isTyping || actionLoading || conversationLoading} summarizing={contextSummarizing} deletingId={contextDeletingId} onSummary={summarizeContext} onDeleteItem={removeContextItem} />
-        <ChatInput value={draft} onChange={setDraft} onSubmit={send} disabled={isTyping || actionLoading || conversationLoading} placeholder="Ask ICU anything…" variant="general" />
+        <ChatInput value={draft} onChange={setDraft} onSubmit={send} disabled={isTyping || actionLoading || conversationLoading} placeholder="Ask ICU anything…" variant="general" mode={chatMode} onModeChange={setChatMode} />
       </div>
       </div>
     </section>

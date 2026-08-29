@@ -17,6 +17,10 @@ _LOCAL_PATTERN = re.compile(
     r"\b(uploaded|document|file|notes?|paper|tài liệu|đã tải|trong file)\b",
     flags=re.IGNORECASE,
 )
+_BRIEF_PATTERN = re.compile(
+    r"\b(brief|short|concise|quick|ngắn|ngắn gọn|tóm tắt ngắn)\b",
+    flags=re.IGNORECASE,
+)
 
 
 class QueryUnderstandingNode:
@@ -60,6 +64,7 @@ class QueryUnderstandingNode:
             result = QueryUnderstanding.model_validate_json(
                 response.choices[0].message.content or "{}"
             )
+            result.depth = "brief" if _BRIEF_PATTERN.search(state.query) else "deep"
             if not state.space_id:
                 result.use_local_sources = False
             return result

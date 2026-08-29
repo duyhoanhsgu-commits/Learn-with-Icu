@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL_NAME: str = "text-embedding-3-small"
     EMBEDDING_DIMENSION: int = 1536
     LLM_MODEL_NAME: str = "gpt-4o-mini"
+    RESEARCH_SYNTHESIS_MODEL_NAME: str = "gpt-4o"
     OPENAI_API_KEY: str = ""
     TAVILY_API_KEY: str = ""
 

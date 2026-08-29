@@ -20,6 +20,8 @@ Return exactly:
 
 Use local sources when uploaded material can help. Use web sources when independent,
 external, or fresh evidence can materially improve the answer.
+Choose depth="deep" for Research mode unless the user explicitly requests a short,
+brief, or concise result.
 """
 
 PLANNER_SYSTEM_PROMPT = """You are a research planner, not an answer generator.
@@ -145,6 +147,16 @@ SYNTHESIZE_USER_PROMPT = """Write a research report answering the original reque
 Original request:
 {query}
 
+Research depth: {depth}
+Target length when supported by the evidence: {target_length}
+Collected evidence items: {evidence_count}
+
+Research questions to address:
+{research_questions}
+
+User constraints:
+{constraints}
+
 Use the numbered evidence in the retrieved knowledge supplied before this request.
 
 Known limitations or missing topics:
@@ -161,6 +173,12 @@ Use exactly these Markdown sections:
 Rules:
 - Use only the numbered evidence above.
 - Cite important factual claims with [n] using only an available evidence number.
+- Aim for the target length when the evidence supports it. Prefer a substantive,
+  well-developed explanation over a terse summary, but never pad, repeat, or speculate.
+- In Detailed Analysis, create a clear ## subsection for every research question and
+  explain mechanisms, implications, trade-offs, and supporting evidence where relevant.
+- Make Key Findings specific and developed rather than one-line restatements.
+- Compare and reconcile multiple sources instead of merely listing their excerpts.
 - Reconcile evidence when sources differ; label inference and uncertainty.
 - If evidence is insufficient, say so explicitly instead of guessing.
 - In Sources, list each cited source once using the supplied source label and URL or

@@ -4,12 +4,18 @@ from typing import Any
 from openai import AsyncOpenAI
 
 from src.agent.context import context_builder
+from src.agent.research.config import RESEARCH_INPUT_TOKEN_BUDGET, research_settings
 from src.agent.research.prompts import SYNTHESIZE_SYSTEM_PROMPT, SYNTHESIZE_USER_PROMPT
 from src.agent.research.state import ResearchState
 from src.core.config import settings
 from src.core.logging import logger
 
 _CITATION_PATTERN = re.compile(r"\[(\d+)\]")
+_DEPTH_TARGETS = {
+    "brief": "600–1,000 words",
+    "standard": "1,200–2,000 words",
+    "deep": "1,800–3,000 words",
+}
 
 
 def source_identity(evidence: dict[str, Any]) -> tuple[str, str]:
@@ -57,7 +63,10 @@ def source_label(number: int, source: dict[str, Any]) -> str:
 
 class ResearchSynthesizer:
     def __init__(self, client=None, model_name: str | None = None):
-        self.model_name = model_name or settings.LLM_MODEL_NAME
+        # Research report writing benefits from a stronger model, while the
+        # cheaper default model can continue serving normal chat and the
+        # structured intermediate research steps.
+        self.model_name = model_name or settings.RESEARCH_SYNTHESIS_MODEL_NAME
         if client is False:
             self._client = None
         else:
@@ -66,6 +75,27 @@ class ResearchSynthesizer:
                 if settings.OPENAI_API_KEY
                 else None
             )
+
+    @staticmethod
+    def report_parameters(state: ResearchState) -> dict[str, str]:
+        understanding = state.query_understanding
+        depth = understanding.depth if understanding else "deep"
+        questions = state.research_questions or list(dict.fromkeys(
+            item.get("research_question", "")
+            for item in state.evidence
+            if item.get("research_question")
+        ))
+        constraints = understanding.constraints if understanding else []
+        return {
+            "depth": depth,
+            "target_length": _DEPTH_TARGETS[depth],
+            "research_questions": "\n".join(
+                f"- {question}" for question in questions
+            ) or "- Address the original request directly.",
+            "constraints": "\n".join(
+                f"- {constraint}" for constraint in constraints
+            ) or "- No additional constraints.",
+        }
 
     @staticmethod
     def fallback_report(
@@ -77,11 +107,23 @@ class ResearchSynthesizer:
             f"- {item.get('claim') or item.get('evidence')} [{item['source_number']}]"
             for item in numbered_evidence
         ) or "- No grounded evidence was available."
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        for item in numbered_evidence:
+            question = item.get("research_question") or "Available evidence"
+            grouped.setdefault(question, []).append(item)
         details = "\n\n".join(
-            f"**{item.get('research_question', 'Finding')}** — {item.get('evidence')} "
-            f"[{item['source_number']}]"
-            for item in numbered_evidence
+            f"## {question}\n\n" + "\n".join(
+                f"- **{item.get('claim') or 'Finding'}** — {item.get('evidence')} "
+                f"[{item['source_number']}]"
+                for item in items
+            )
+            for question, items in grouped.items()
         ) or "The available sources did not provide enough evidence for detailed analysis."
+        summary_items = numbered_evidence[:3]
+        summary = " ".join(
+            f"{item.get('claim') or item.get('evidence')} [{item['source_number']}]"
+            for item in summary_items
+        ) or f"No grounded evidence was available for: {state.query}"
         limitations = (
             ", ".join(state.missing_topics)
             if state.missing_topics
@@ -93,7 +135,7 @@ class ResearchSynthesizer:
         ) or "No sources available."
         return f"""# Summary
 
-The report below summarizes the grounded evidence collected for: {state.query}
+{summary}
 
 # Key Findings
 
@@ -128,6 +170,7 @@ The evidence above should be compared only on the dimensions explicitly supporte
             f"Evidence excerpt: {item.get('evidence')}"
             for item in numbered_evidence
         )
+        report_parameters = self.report_parameters(state)
         try:
             response = await self._client.chat.completions.create(
                 model=self.model_name,
@@ -139,10 +182,14 @@ The evidence above should be compared only on the dimensions explicitly supporte
                     recent_messages=state.history,
                     query=SYNTHESIZE_USER_PROMPT.format(
                         query=state.query,
+                        evidence_count=len(numbered_evidence),
                         limitations="\n".join(f"- {item}" for item in state.missing_topics) or "None identified",
+                        **report_parameters,
                     ),
+                    token_budget=RESEARCH_INPUT_TOKEN_BUDGET,
                 ),
                 temperature=0.2,
+                max_completion_tokens=research_settings.max_output_tokens,
             )
             report = response.choices[0].message.content or ""
             citations = {int(value) for value in _CITATION_PATTERN.findall(report)}
